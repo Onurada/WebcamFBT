@@ -109,8 +109,8 @@ MESSAGES = {
     },
     "driver_ok": {"tr": "SteamVR sürücüsü yeniden veri alıyor.", "en": "The SteamVR driver is receiving data again."},
     "rec_waiting": {
-        "tr": "Kayıt {s} saniye sonra başlayacak ({n} saniye sürecek). Kaskı tak, kameranın önüne geç; iki bipte kayıt başlar.",
-        "en": "Recording starts in {s} seconds and lasts {n} seconds. Put the headset on and step in front of the camera; two beeps mark the start.",
+        "tr": "Kayıt en erken {s} saniye sonra, kalibrasyon yapılınca başlayacak ({n} saniye sürecek). Kaskı tak, kameranın önünde dik dur; iki bipte kayıt başlar.",
+        "en": "Recording starts once calibrated, {s} seconds from now at the earliest, and lasts {n} seconds. Put the headset on and stand still in front of the camera; two beeps mark the start.",
     },
     "rec_started": {
         "tr": "Kayıt başladı ({n} sn): yürü, dön, otur-kalk, adım at; her zamanki gibi oyna. Bitince tiz bip.",

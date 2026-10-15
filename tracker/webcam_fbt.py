@@ -2090,7 +2090,7 @@ def run(args, cfg, ipc):
             for w in workers:
                 c = cal.cals[w.index]
                 w.facing_ref = (c.R.T @ np.array([0.0, 1.0, 0.0]), c.R.T @ -hmd.rot[:, 2]) if c.ready and hmd else None
-            rec_event = st.recorder.tick(now)
+            rec_event = st.recorder.tick(now, cal.ready)
             if rec_event == "started":
                 st.recorder.calibration(now, cal)
                 log(T("rec_started", n=round(st.recorder.stop_at - now)))

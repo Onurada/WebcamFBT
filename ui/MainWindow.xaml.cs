@@ -788,7 +788,7 @@ public partial class MainWindow : Window
         var left = s.TryGetProperty("recording_left", out var l) ? l.GetInt32() : 0;
         RecordButton.Content = _recording switch
         {
-            "waiting" => Loc.T("Control.RecordWaiting", left),
+            "waiting" => left > 0 ? Loc.T("Control.RecordWaiting", left) : Loc.T("Control.RecordWaitCalib"),
             "recording" => Loc.T("Control.RecordRunning", left),
             _ => Loc.T("Control.Record"),
         };

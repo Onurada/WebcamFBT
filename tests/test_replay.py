@@ -186,6 +186,30 @@ def test_edge_landmarks_count_as_hidden():
     assert out[w.L_ANK] <= 0.2 and out[w.R_ANK] <= 0.2 and out[w.L_HIP] == 1.0
 
 
+def test_recording_waits_for_calibration():
+    rec = recorder.Recorder(os.path.join(os.environ.get("TEMP", "."), "webcamfbt_rec_wait"))
+    rec.start(0.0, 60, 15, {})
+    assert rec.tick(20.0, ready=False) is None and rec.state == "waiting"
+    assert rec.tick(30.0, ready=True) == "started" and abs(rec.stop_at - 90.0) < 1e-9
+
+
+def test_calibrating_from_a_recording():
+    """A recording made before calibrating is calibrated from its first still moment."""
+    global STAND, HIDDEN, BACK
+    folder = os.path.join(os.environ.get("TEMP", "."), "webcamfbt_replay_cal")
+    saved = STAND, HIDDEN, BACK
+    STAND, HIDDEN, BACK = 5.0, (99, 99), (99, 99)  # one stride, then a long stand in full view
+    try:
+        path = make_recording(os.path.join(folder, "x.npz"), seconds=6.0)
+    finally:
+        STAND, HIDDEN, BACK = saved
+    rec = recorder.load(path)
+    rec["calibrations"] = []
+    found = replay.calibrate_from_recording(rec)
+    os.remove(path)
+    assert found and abs(found[0]["scale"] - 1 / t.MP_SCALE) < 0.06, found
+
+
 def test_hmd_history_lookup():
     h = w.HmdHistory()
     for k in range(100):

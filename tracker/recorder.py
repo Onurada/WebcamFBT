@@ -37,7 +37,8 @@ class Recorder:
         self._clear()
         self.meta = dict(meta)
         self.start_at = now + max(0.0, delay)
-        self.stop_at = self.start_at + min(max(5.0, seconds), self.MAX_SECONDS)
+        self.duration = min(max(5.0, seconds), self.MAX_SECONDS)
+        self.stop_at = self.start_at + self.duration
         self.state = "waiting"
 
     def cancel(self):
@@ -51,9 +52,11 @@ class Recorder:
             return self.stop_at - now
         return 0.0
 
-    def tick(self, now):
+    def tick(self, now, ready=True):
         """'started' when recording begins, 'due' when it should be saved, else None."""
-        if self.state == "waiting" and now >= self.start_at:
+        # A recording is only useful with a calibration in it, so it waits for one (ready).
+        if self.state == "waiting" and now >= self.start_at and ready:
+            self.stop_at = now + self.duration
             self.state = "recording"
             return "started"
         if self.state == "recording" and now >= self.stop_at:

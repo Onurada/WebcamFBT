@@ -66,6 +66,40 @@ def calibration_for(rec, camera, t):
     return cal
 
 
+def calibrate_from_recording(rec, camera=None):
+    """Recordings made before calibrating hold none: calibrate the way the engine does on its own
+    (the first moment the player stands still, then 2 s of samples) and apply the result to the
+    whole recording (the camera did not move). Returns the calibrations added."""
+    hmd = Hmd(rec)
+    if len(hmd.t) == 0:
+        return []
+    order = np.argsort(rec["frame_t"])
+    cams = [int(c) for c in rec["frame_cam"][order]]
+    camera = cams[0] if camera is None else camera
+    filt = w.OneEuro(*w.filter_params(w.DEFAULTS))
+    still, cal = w.StillDetector(), w.Calibration(camera, sound=False)
+    for k in order:
+        if int(rec["frame_cam"][k]) != camera:
+            continue
+        t = float(rec["frame_t"][k])
+        if t < hmd.t[0]:
+            continue
+        vis = w.edge_visibility(rec["vis"][k].astype(float), rec["img"][k].astype(float))
+        P = filt(rec["raw"][k].astype(float), t, w.visibility_weight(vis))
+        h = hmd.at(t + PROCESS_DELAY)
+        if cal.phase is None and still.update(t, P, vis, h):
+            cal.start(t, countdown=0.0)
+        result = cal.update(t, P, vis, h) if cal.phase is not None else None
+        if result is False:  # moved while it measured: wait for the next still moment, like the engine
+            still.reset()
+        if result:
+            found = {"t": -math.inf, "camera": camera, "R": cal.R.tolist(), "scale": cal.scale, "floor": cal.floor,
+                     "shoulders": cal.shoulders.tolist(), "head_anchor": cal.head_anchor, "from_recording": t}
+            rec["calibrations"].append(found)
+            return [found]
+    return []
+
+
 def run(rec, opts, cfg=None, latency=None):
     """The engine's per-frame tracking over the recording. Returns per-frame records."""
     cfg = {**w.DEFAULTS, **(cfg or {})}
@@ -194,8 +228,12 @@ def main():
     print(f"{os.path.basename(args.recording)}: {len(rec['frame_t'])} frames, {span:.0f} s, "
           f"{len(rec['hmd_t'])} headset poses, {len(rec['calibrations'])} calibrations, meta {rec['meta']}")
     if not rec["calibrations"]:
-        print("No calibration in the recording: calibrate before (or while) recording.")
-        return
+        found = calibrate_from_recording(rec)
+        if not found:
+            print("No calibration in the recording and the player never stood still in it: calibrate before recording.")
+            return
+        print(f"No calibration in the recording: calibrated from it at {found[0]['from_recording'] - rec['frame_t'].min():.1f} s "
+              f"(scale {found[0]['scale']:.2f}), applied to the whole recording.")
     lat = estimate_latency(rec)
     print("estimated camera latency:", lat)
     old, new = metrics(run(rec, OLD)), metrics(run(rec, NEW))
