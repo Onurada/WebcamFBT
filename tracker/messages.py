@@ -13,6 +13,7 @@ MESSAGES = {
         "en": 'Extra camera {i} could not be opened ({err}); continuing without it.',
     },
     "vr_connected": {"tr": "SteamVR'a bağlanıldı: {name} ({conn})", "en": "Connected to SteamVR: {name} ({conn})"},
+    "vr_headset": {"tr": "Kask: {name} ({conn})", "en": "Headset: {name} ({conn})"},
     "conn_meta_link": {"tr": "Meta Horizon Link: kablo ya da Air Link", "en": "Meta Horizon Link: cable or Air Link"},
     "conn_steam_link": {"tr": "Steam Link", "en": "Steam Link"},
     "conn_virtual_desktop": {"tr": "Virtual Desktop", "en": "Virtual Desktop"},

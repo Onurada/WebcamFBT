@@ -500,6 +500,8 @@ class VRLink:
         self.raw_arr = (openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount)()
         self.std_arr = (openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount)()
         self.headset = None  # {"name", "family", "connection"} once connected
+        self.identified_at = 0.0
+        self.headset_changed = False  # set when the headset's name changed after connecting
         self.just_connected = False  # set on (re)connect, read and cleared by the main loop
         # SteamVR announced a recenter / chaperone change. Only reported: Steam Link sends these on
         # every wake from standby too, and moving the calibration on such events wrecked tracking.
@@ -577,12 +579,14 @@ class VRLink:
             try:
                 self.sys = openvr.init(openvr.VRApplication_Background)
                 self.headset = self._identify_headset()
+                self.identified_at = time.monotonic()
                 self.just_connected = True
                 log(T("vr_connected", name=self.headset["name"], conn=T("conn_" + self.headset["connection"])))
             except Exception:
                 return None
         try:
             ev = openvr.VREvent_t()
+            hmd_props_changed = False
             while self.sys.pollNextEvent(ev):
                 if ev.eventType == openvr.VREvent_Quit:
                     self.sys.acknowledgeQuit_Exiting()
@@ -591,6 +595,17 @@ class VRLink:
                     return None
                 if ev.eventType in self.SPACE_EVENTS:
                     self.space_event = True
+                if ev.eventType == openvr.VREvent_PropertyChanged and ev.trackedDeviceIndex == openvr.k_unTrackedDeviceIndex_Hmd:
+                    hmd_props_changed = True
+            # Steam Link fills in the headset's real properties a few seconds after SteamVR starts,
+            # so the name read at connect time can be a placeholder: read it again now and then.
+            if hmd_props_changed or time.monotonic() - self.identified_at > 10:
+                self.identified_at = time.monotonic()
+                found = self._identify_headset()
+                if found != self.headset:
+                    self.headset = found
+                    self.headset_changed = True
+                    log(T("vr_headset", name=found["name"], conn=T("conn_" + found["connection"])))
             raw = self.sys.getDeviceToAbsoluteTrackingPose(openvr.TrackingUniverseRawAndUncalibrated, 0.0, self.raw_arr)
             std = self.sys.getDeviceToAbsoluteTrackingPose(openvr.TrackingUniverseStanding, 0.0, self.std_arr)
         except Exception as e:
@@ -1612,6 +1627,9 @@ def run(args, cfg, ipc):
                 last_vr_poll = now
                 hmd = vr.poll()
                 st.assistant.record(hmd)
+            if vr.headset_changed:
+                vr.headset_changed = False
+                st.headset_name = vr.headset["name"]
             if vr.just_connected:
                 vr.just_connected = False
                 st.headset_name = vr.headset["name"]
