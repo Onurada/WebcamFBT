@@ -153,15 +153,16 @@ def test_hidden_foot_follows_the_body():
     w.build_poses(W0, vis, t.FLOOR, cfg, enabled, last, None, 0.0, carry)
     hidden = vis.copy()
     hidden[[w.L_ANK, w.L_HEEL, w.L_TOE]] = 0.1
-    W1 = W0 + t.RIGHT * 1.0
-    poses = {w.TRACKERS[i]: p for i, p, _ in w.build_poses(W1, hidden, t.FLOOR, cfg, enabled, last, None, 0.1, carry)}
+    for k in range(1, 11):  # walks 1 m in 0.5 s with the foot out of the picture
+        W1 = W0 + t.RIGHT * 0.1 * k
+        poses = {w.TRACKERS[i]: p for i, p, _ in w.build_poses(W1, hidden, t.FLOOR, cfg, enabled, last, None, 0.05 * k, carry)}
     assert np.linalg.norm(poses["left_foot"] - W1[w.L_ANK]) < 0.05, poses["left_foot"] - W1[w.L_ANK]
     # seen again 20 cm away from where it was carried: glides there instead of jumping
     W2 = W1.copy()
     W2[[w.L_ANK, w.L_HEEL, w.L_TOE]] += t.FWD * 0.2
-    first = {w.TRACKERS[i]: p for i, p, _ in w.build_poses(W2, vis, t.FLOOR, cfg, enabled, last, None, 0.2, carry)}
+    first = {w.TRACKERS[i]: p for i, p, _ in w.build_poses(W2, vis, t.FLOOR, cfg, enabled, last, None, 0.55, carry)}
     assert np.linalg.norm(first["left_foot"] - W2[w.L_ANK]) > 0.15  # still near the carried spot
-    later = {w.TRACKERS[i]: p for i, p, _ in w.build_poses(W2, vis, t.FLOOR, cfg, enabled, last, None, 0.6, carry)}
+    later = {w.TRACKERS[i]: p for i, p, _ in w.build_poses(W2, vis, t.FLOOR, cfg, enabled, last, None, 0.9, carry)}
     assert np.linalg.norm(later["left_foot"] - W2[w.L_ANK]) < 1e-6
 
 

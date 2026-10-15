@@ -1388,8 +1388,10 @@ def fuse_views(views, hmd=None, max_facing=math.radians(110)):
 class Carry:
     """Trackers whose joints the camera cannot see (feet out of the picture while walking) follow
     the body instead of freezing where they were last seen: a hidden foot keeps its last offset to
-    its knee if the knee is seen (floor-clamped), else to the hips (on the floor). When the joint is
-    seen again the tracker glides to the measured pose over BLEND seconds instead of jumping."""
+    its knee if the knee is seen (floor-clamped), else to the hips (on the floor). Whenever a
+    tracker's source changes (seen, carried by the knee, carried by the hips) it glides from where
+    it was to the new place over BLEND seconds instead of jumping: a knee at the edge of the picture
+    flickering in and out of view made a carried foot hop 30-40 cm between the two."""
 
     BLEND = 0.3
     FOOT_KNEE = {"left_foot": L_KNEE, "right_foot": R_KNEE}
@@ -1398,17 +1400,13 @@ class Carry:
         self.rel = {}  # name -> (position, rotation) relative to the hips' yaw frame
         self.rel_knee = {}  # foot -> offset from its knee in the hips' yaw frame
         self.out = {}  # name -> last position sent
-        self.hidden = set()
+        self.mode = {}  # name -> "seen", "knee" or "hips"
         self.glide = {}  # name -> (offset, start time)
 
-    def seen(self, name, pos, rot, hip, yaw, now, knee=None):
-        if name in self.hidden:
-            self.hidden.discard(name)
-            if name in self.out:
-                self.glide[name] = (self.out[name] - pos, now)
-        self.rel[name] = (yaw.T @ (pos - hip), yaw.T @ rot)
-        if knee is not None:
-            self.rel_knee[name] = yaw.T @ (pos - knee)
+    def _emit(self, name, mode, pos, now):
+        if self.mode.get(name) != mode and name in self.out:
+            self.glide[name] = (self.out[name] - pos, now)
+        self.mode[name] = mode
         if name in self.glide:
             off, t0 = self.glide[name]
             k = 1.0 - (now - t0) / self.BLEND
@@ -1417,26 +1415,31 @@ class Carry:
             else:
                 pos = pos + off * k
         self.out[name] = pos
-        return pos, rot
+        return pos
 
-    def carried(self, name, hip, yaw, ground_y, knee=None):
+    def seen(self, name, pos, rot, hip, yaw, now, knee=None):
+        self.rel[name] = (yaw.T @ (pos - hip), yaw.T @ rot)
+        if knee is not None:
+            self.rel_knee[name] = yaw.T @ (pos - knee)
+        return self._emit(name, "seen", pos, now), rot
+
+    def carried(self, name, hip, yaw, ground_y, knee=None, now=0.0):
         """Pose of a tracker that is not seen now, or None if it was never seen."""
         if name not in self.rel:
             return None
         rel_pos, rel_rot = self.rel[name]
+        mode = "hips"
         if name in self.FOOT_KNEE:
             if knee is not None and name in self.rel_knee:
                 pos = knee + yaw @ self.rel_knee[name]
                 pos[1] = max(pos[1], ground_y)
+                mode = "knee"
             else:
                 pos = hip + yaw @ rel_pos
                 pos[1] = ground_y
         else:
             pos = hip + yaw @ rel_pos
-        self.hidden.add(name)
-        self.glide.pop(name, None)
-        self.out[name] = pos
-        return pos, yaw @ rel_rot
+        return self._emit(name, mode, pos, now), yaw @ rel_rot
 
 
 def yaw_frame(right):
@@ -1497,7 +1500,7 @@ def build_poses(W, vis, floor, cfg, enabled, last, feet=None, now=0.0, carry=Non
             if carry is not None:
                 pose = carry.seen(name, pose[0], pose[1], hip_mid, yaw, now, knee)
         elif carry is not None and name != "hip":
-            pose = carry.carried(name, hip_mid, yaw, min_ankle, knee)
+            pose = carry.carried(name, hip_mid, yaw, min_ankle, knee, now)
         if pose is not None:
             last[name] = (tid, pose[0].copy(), quat_from_matrix(pose[1]))
         if name in last:
