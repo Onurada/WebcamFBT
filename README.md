@@ -1,0 +1,88 @@
+# WebcamFBT — Full Body Tracking with a Webcam (Quest 3 + SteamVR)
+
+*Türkçe: [KULLANIM.md](KULLANIM.md)*
+
+Estimates your skeleton from a webcam (MediaPipe Pose), anchors it to the Quest 3 headset pose and sends it to
+SteamVR as **virtual Vive trackers**. Works in VRChat, Vivecraft and any other SteamVR game.
+
+Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both feet** gives the most solid result.
+
+## Getting started
+1. **Place the camera:** about 2–3 m away, at waist or chest height. Your **whole body**, head to toe, must be visible. Use good lighting: in a dark room the camera drops from 30 to 20 frames per second.
+2. Connect the Quest 3 to the PC (Steam Link / Air Link / Link cable) and start **SteamVR**.
+3. Open `app\WebcamFBT.exe` and press **Start**. The engine takes 5–10 s to start.
+4. **Calibrate:** wearing the headset, stand in front of the camera and press **F8**. The hotkey also works while in a game.
+   - After the first beep you have 3 seconds: **stand straight and look ahead**, arms at your sides.
+   - At the second beep **hold still for 2 seconds**.
+   - High beep: done. Long low beep: failed, press F8 again.
+5. Run your game's full body calibration.
+   - **VRChat:** T-pose, then pull both triggers.
+   - **Vivecraft:** first set the model type to *Split Arms* or *Split Arms/Legs* under *Playermodel Settings*, then run *Calibrate FBT…*.
+
+> The calibration is saved and loaded automatically next time. **If you move the camera or recenter the Quest**, press F8 to redo it.
+> If you enabled new trackers (elbows, knees…), redo the in-game full body calibration too.
+
+## The app
+| Section | What it does |
+|---|---|
+| Status chips | Engine, camera FPS, time the model spends per frame (ms), SteamVR, person, calibration, number of trackers sent |
+| Control | Start/Stop, Calibrate (F8), Pause (F9), test without SteamVR |
+| General | **Language (Türkçe/English)**, start the engine on launch, remember calibration, show preview |
+| Fine tuning | Rotates the camera direction ±2° and changes the scale (small corrections after calibrating) |
+| Trackers | Which body points are sent, applied immediately |
+| Camera and model | Camera selection and scan, model: Fast (lite, 22 ms) / Balanced (full, 37 ms) / Accurate (heavy, 133 ms) |
+| Smoothing | Jitter reduction, lag reduction on fast moves, depth smoothing, visibility threshold, floor lock, foot pinning |
+| SteamVR driver | Install/repair and remove (while SteamVR is closed) |
+
+## Hotkeys
+| Key | Action |
+|---|---|
+| **F8** (anywhere) | Calibrate |
+| **F9** (anywhere) | Pause / resume sending trackers |
+
+## Performance and stability
+Measured on this PC (Ryzen 5 2600):
+- Model time: lite 22 ms, full 37 ms, heavy 133 ms. Preview and everything else together take under 2 ms.
+- The real limit is the camera: 20 frames per second in a dark room. It can reach 30 with good lighting.
+
+What keeps tracking stable:
+- **Driver blending:** the ~20 poses per second are spread smoothly over the headset's 72–120 Hz. This adds about 50 ms of latency.
+- **Depth smoothing:** towards/away from the camera is the noisiest axis for a single camera, so it gets stronger smoothing.
+- **Visibility-based smoothing:** joints the model can barely see are smoothed harder.
+- **Foot pinning:** a planted foot stays put until you lift it. Foot jitter while standing went from 1.1 cm to 0.3 cm on average.
+- **CPU priority:** the engine runs at above-normal priority, so it doesn't stutter when the game loads the CPU.
+- **Preview:** the preview pauses while the window is minimized, leaving the CPU to the game.
+- **Camera connection:** the engine reconnects by itself if the camera drops out.
+
+## Limits (single camera)
+- Moving towards/away from the camera (depth) is the weakest axis.
+- With **your back to the camera**, left and right can swap.
+- Sitting, lying down and limbs hidden from the camera track poorly.
+- Total latency is about 120–170 ms (camera + model + blending).
+
+## Troubleshooting
+- **No trackers in SteamVR:** the engine must be running and calibrated. Trackers only appear once data arrives.
+- **Trackers offset or reversed:** recalibrate with F8. If still off, use *Fine tuning*.
+- **Some trackers missing in a game (e.g. elbows):** they may have been added after the game started; redo the in-game full body calibration. In Vivecraft, elbows don't show with the *Vanilla* model type.
+- **Wrong tracker roles:** in SteamVR → Settings → Controllers → *Manage Trackers*, set WCFBT_HIP = Waist, WCFBT_LFOOT = Left foot, and so on. Or press *Install / repair* in the app.
+- **To remove:** close SteamVR and press *Remove* in the app (or run `uninstall_driver.bat`).
+
+## Folder
+| File | Purpose |
+|---|---|
+| `app\WebcamFBT.exe` | The app |
+| `tracker\webcam_fbt.py` | Engine (Python, MediaPipe) |
+| `tracker\messages.py` | Engine texts (Turkish/English) |
+| `tracker\config.json` | Settings |
+| `tracker\calibration.json` | Saved calibration |
+| `webcamfbt\` | SteamVR driver (source in `driver_src\`, built with `build_driver.bat`) |
+| `ui\` | App source code (language files in `ui\Strings\`) |
+| `start.bat` | Starts the engine without the app, with an OpenCV window |
+
+**Rebuilding:**
+- **App:** `dotnet publish ui -c Release -o app -p:OutputPath=..\build\ui-bin\`
+- **Driver:** run `build_driver.bat` while SteamVR is closed.
+
+**Adding a language:**
+1. Copy `ui\Strings\Strings.en.xaml` to `Strings.xx.xaml`, translate it and add it to the list in `ui\Loc.cs`.
+2. Add an `"xx"` translation to every message in `tracker\messages.py`.

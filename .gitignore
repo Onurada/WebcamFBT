@@ -1,0 +1,25 @@
+# Python environment (recreate with: python -m venv .venv && .venv\Scripts\pip install -r tracker\requirements.txt)
+.venv/
+__pycache__/
+*.pyc
+
+# Build output (app\ = dotnet publish of ui\, webcamfbt\bin = build_driver.bat / Release|x64 of the driver)
+build/
+app/
+ui/bin/
+ui/obj/
+webcamfbt/bin/
+*.obj
+*.exp
+*.lib
+*.pdb
+*.ilk
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+x64/
+
+# Per-machine state
+tracker/calibration.json

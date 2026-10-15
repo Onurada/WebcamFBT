@@ -1,0 +1,26 @@
+{
+  "camera_index": 0,
+  "camera_width": 640,
+  "camera_height": 480,
+  "camera_fps": 30,
+  "model": "full",
+  "trackers": {
+    "hip": true,
+    "left_foot": true,
+    "right_foot": true,
+    "left_knee": true,
+    "right_knee": true,
+    "chest": true,
+    "left_elbow": true,
+    "right_elbow": true
+  },
+  "filter_min_cutoff": 1.0,
+  "filter_beta": 1.0,
+  "min_visibility": 0.5,
+  "floor_lock": true,
+  "ankle_height": 0.08,
+  "mirror_preview": true,
+  "udp_port": 39570,
+  "depth_smoothing": 0.6,
+  "foot_lock": true
+}

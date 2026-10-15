@@ -1,0 +1,650 @@
+using System.ComponentModel;
+using System.Globalization;
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
+using System.Windows.Threading;
+
+namespace WebcamFBT;
+
+public partial class MainWindow : Window
+{
+    // MediaPipe / TensorFlow chatter on stderr that is not worth showing
+    private static readonly Regex StderrNoise = new(@"^(W0000|I0000|INFO:|WARNING: Logging|WARNING: All log messages)");
+
+    private readonly Engine _engine = new();
+    private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
+    private readonly DispatcherTimer _watchdog = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly ConfigStore? _cfg;
+    private readonly string? _startupError;
+    private bool _loading = true;
+    private bool _syncingPause;
+    private bool _closeAllowed;
+    private bool _restarting;
+    private int _framePending;
+    private DateTime _lastStatus;
+    private DateTime _calibResultUntil;
+    private bool? _calibResultOk;
+    private string _vrState = "off";
+    private List<(int Index, int Width, int Height)>? _scannedCameras;
+    private (string Key, object[] Args) _placeholder = ("Placeholder.Off", []);
+
+    private Brush Good => (Brush)FindResource("GoodBrush");
+    private Brush Warn => (Brush)FindResource("WarnBrush");
+    private Brush Bad => (Brush)FindResource("BadBrush");
+    private Brush Idle => (Brush)FindResource("IdleBrush");
+
+    public MainWindow()
+    {
+        // Settings first: the language must be in place before the window is built.
+        if (AppPaths.Root == null)
+            _startupError = "Log.RootMissing";
+        else if (!File.Exists(AppPaths.Python))
+            _startupError = "Log.PythonMissing";
+        else
+        {
+            try { _cfg = new ConfigStore(AppPaths.ConfigFile); }
+            catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
+            {
+                _startupError = "Log.ConfigError";
+                _startupErrorDetail = e.Message;
+            }
+        }
+        Loc.Apply(_cfg?.GetString("language", "") is { Length: > 0 } lang ? lang : Loc.SystemDefault());
+
+        InitializeComponent();
+
+        _engine.Message += msg => Dispatcher.BeginInvoke(() => HandleMessage(msg));
+        _engine.FrameReady += OnFrame;
+        _engine.ErrorOutput += line =>
+        {
+            if (!string.IsNullOrWhiteSpace(line) && !StderrNoise.IsMatch(line))
+                Dispatcher.BeginInvoke(() => Log(line));
+        };
+        _engine.Exited += code => Dispatcher.BeginInvoke(() => OnEngineExited(code));
+        _saveTimer.Tick += (_, _) => SaveConfig();
+        _watchdog.Tick += (_, _) => CheckEngineAlive();
+
+        foreach (var (code, name) in Loc.Languages)
+            LanguageCombo.Items.Add(new ComboBoxItem { Content = name, Tag = code });
+        LanguageCombo.SelectedItem = LanguageCombo.Items.Cast<ComboBoxItem>().First(i => (string)i.Tag == Loc.Current);
+
+        ResetChips();
+        if (_startupError != null)
+        {
+            Fail(_startupError switch
+            {
+                "Log.PythonMissing" => Loc.T(_startupError, AppPaths.Python),
+                "Log.ConfigError" => Loc.T(_startupError, _startupErrorDetail ?? ""),
+                _ => Loc.T(_startupError),
+            });
+            return;
+        }
+
+        LoadConfigIntoUi();
+        RefreshDriverStatus();
+        SetPlaceholder("Placeholder.Off");
+        _loading = false;
+        Log(Loc.T("Log.Folder", AppPaths.Root!));
+    }
+
+    private readonly string? _startupErrorDetail;
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_cfg != null && _cfg.GetBool("auto_start", false))
+            StartEngine();
+    }
+
+    // ------------------------------------------------------------------ config <-> UI
+
+    private void LoadConfigIntoUi()
+    {
+        var cfg = _cfg!;
+        RebuildCameraItems();
+
+        var model = cfg.GetString("model", "full");
+        ModelCombo.SelectedItem = ModelCombo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == model)
+                                  ?? ModelCombo.Items[1];
+
+        foreach (var check in TrackerGrid.Children.OfType<CheckBox>())
+            check.IsChecked = cfg.GetTracker((string)check.Tag);
+
+        SmoothSlider.Value = cfg.GetDouble("filter_min_cutoff", 1.0);
+        BetaSlider.Value = cfg.GetDouble("filter_beta", 1.0);
+        DepthSlider.Value = cfg.GetDouble("depth_smoothing", 0.6);
+        VisibilitySlider.Value = cfg.GetDouble("min_visibility", 0.5);
+        VisibilityText.Text = VisibilitySlider.Value.ToString("0.00");
+        FloorLockCheck.IsChecked = cfg.GetBool("floor_lock", true);
+        FootLockCheck.IsChecked = cfg.GetBool("foot_lock", true);
+        MirrorCheck.IsChecked = cfg.GetBool("mirror_preview", true);
+        AutoStartCheck.IsChecked = cfg.GetBool("auto_start", false);
+        RememberCalibCheck.IsChecked = cfg.GetBool("remember_calibration", true);
+        ShowPreviewCheck.IsChecked = cfg.GetBool("show_preview", true);
+    }
+
+    private void RebuildCameraItems()
+    {
+        if (_cfg == null) return;
+        var current = _cfg.GetInt("camera_index", 0);
+        var wasLoading = _loading;
+        _loading = true;
+        CameraCombo.Items.Clear();
+        if (_scannedCameras == null)
+        {
+            CameraCombo.Items.Add(new ComboBoxItem { Content = Loc.T("Camera.ItemSimple", current), Tag = current });
+        }
+        else
+        {
+            foreach (var (index, width, height) in _scannedCameras)
+                CameraCombo.Items.Add(new ComboBoxItem { Content = Loc.T("Camera.Item", index, width, height), Tag = index });
+            if (_scannedCameras.All(c => c.Index != current))
+                CameraCombo.Items.Insert(0, new ComboBoxItem { Content = Loc.T("Camera.NotFound", current), Tag = current });
+        }
+        CameraCombo.SelectedItem = CameraCombo.Items.Cast<ComboBoxItem>().First(i => (int)i.Tag == current);
+        _loading = wasLoading;
+    }
+
+    /// <summary>Stores a setting the engine also uses, saves it shortly after, and pushes it live.</summary>
+    private void SetLive(string key, object value)
+    {
+        if (_loading || _cfg == null) return;
+        SetLocal(key, value);
+        _engine.Send(new { cmd = "set", key, value });
+    }
+
+    /// <summary>Stores a setting only the UI uses.</summary>
+    private void SetLocal(string key, object value)
+    {
+        if (_loading || _cfg == null) return;
+        _cfg.Set(key, JsonValue.Create(JsonSerializer.SerializeToElement(value)));
+        ScheduleSave();
+    }
+
+    private void ScheduleSave()
+    {
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    private void SaveConfig()
+    {
+        _saveTimer.Stop();
+        try { _cfg?.Save(); }
+        catch (IOException e) { Log(Loc.T("Log.SaveError", e.Message)); }
+    }
+
+    // ------------------------------------------------------------------ language
+
+    private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || LanguageCombo.SelectedItem is not ComboBoxItem item) return;
+        var code = (string)item.Tag;
+        if (code == Loc.Current) return;
+        Loc.Apply(code);
+        SetLive("language", code);
+
+        // Texts set from code are re-rendered here; XAML texts follow the dictionary by themselves.
+        RebuildCameraItems();
+        RefreshDriverStatus();
+        RenderPlaceholder();
+        if (_engine.IsRunning)
+            SetChip(EngineDot, EngineValue, Loc.T("Engine.Running"), Good);
+        else
+            ResetChips();
+        if (_calibResultOk is bool ok && DateTime.Now < _calibResultUntil)
+            ShowCalibResult(ok, keepTime: true);
+    }
+
+    // ------------------------------------------------------------------ engine lifecycle
+
+    private void StartEngine()
+    {
+        if (_cfg == null || _engine.IsRunning) return;
+        SaveConfig();
+        try
+        {
+            _engine.Start(NoVrCheck.IsChecked == true);
+        }
+        catch (Exception e)
+        {
+            Log(Loc.T("Log.StartError", e.Message));
+            return;
+        }
+        _lastStatus = DateTime.Now;
+        _watchdog.Start();
+        SetRunningUi(true);
+        SetPlaceholder("Placeholder.Starting");
+        SetChip(EngineDot, EngineValue, Loc.T("Engine.Starting"), Warn);
+    }
+
+    private async Task StopEngineAsync()
+    {
+        StartButton.IsEnabled = false;
+        await _engine.StopAsync();
+        StartButton.IsEnabled = true;
+    }
+
+    private async Task RestartEngineAsync(string reasonKey)
+    {
+        if (!_engine.IsRunning) return;
+        Log(Loc.T("Log.Restarting", Loc.T(reasonKey)));
+        _restarting = true;
+        await StopEngineAsync();
+        _restarting = false;
+        StartEngine();
+    }
+
+    private void OnEngineExited(int code)
+    {
+        // During a restart the old process's exit can arrive after the new one has started.
+        if (_restarting || _engine.IsRunning) return;
+        _watchdog.Stop();
+        SetRunningUi(false);
+        Preview.Source = null;
+        CalibOverlay.Visibility = Visibility.Collapsed;
+        if (code == 0)
+            SetPlaceholder("Placeholder.Off");
+        else
+            SetPlaceholder("Placeholder.Crashed", code);
+        ResetChips();
+        if (code != 0)
+            SetChip(EngineDot, EngineValue, Loc.T("Engine.Error"), Bad);
+    }
+
+    private void CheckEngineAlive()
+    {
+        if (_engine.IsRunning && _lastStatus != default && DateTime.Now - _lastStatus > TimeSpan.FromSeconds(15))
+            SetChip(EngineDot, EngineValue, Loc.T("Engine.NoResponse"), Bad);
+    }
+
+    private void SetRunningUi(bool running)
+    {
+        StartButton.SetResourceReference(ContentProperty, running ? "S.Control.Stop" : "S.Control.Start");
+        CalibrateButton.IsEnabled = PauseButton.IsEnabled = running;
+        YawLeftButton.IsEnabled = YawRightButton.IsEnabled = ScaleDownButton.IsEnabled = ScaleUpButton.IsEnabled = running;
+        NoVrCheck.IsEnabled = ScanButton.IsEnabled = !running;
+        InstallDriverButton.IsEnabled = UninstallDriverButton.IsEnabled = !running;
+        if (!running)
+        {
+            _syncingPause = true;
+            PauseButton.IsChecked = false;
+            _syncingPause = false;
+            ScaleText.Text = "";
+        }
+    }
+
+    private bool PreviewWanted => ShowPreviewCheck.IsChecked == true && WindowState != WindowState.Minimized;
+
+    /// <summary>Stops JPEG encoding in the engine and decoding here when nobody is looking.</summary>
+    private void ApplyPreviewState()
+    {
+        if (!_engine.IsRunning) return;
+        _engine.Send(new { cmd = "preview", value = PreviewWanted });
+        if (!PreviewWanted)
+        {
+            Preview.Source = null;
+            SetPlaceholder("Placeholder.PreviewOff");
+        }
+    }
+
+    private void Window_StateChanged(object? sender, EventArgs e) => ApplyPreviewState();
+
+    // ------------------------------------------------------------------ engine events
+
+    private void OnFrame(BitmapSource frame)
+    {
+        // Drop frames while the UI is still drawing the previous one.
+        if (Interlocked.Exchange(ref _framePending, 1) == 1) return;
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, () =>
+        {
+            if (PreviewWanted)
+            {
+                Preview.Source = frame;
+                PlaceholderPanel.Visibility = Visibility.Collapsed;
+            }
+            Interlocked.Exchange(ref _framePending, 0);
+        });
+    }
+
+    private void HandleMessage(JsonElement msg)
+    {
+        switch (msg.GetProperty("type").GetString())
+        {
+            case "status":
+                UpdateStatus(msg);
+                break;
+            case "started":
+                SetChip(EngineDot, EngineValue, Loc.T("Engine.Running"), Good);
+                SetPlaceholder("Placeholder.Camera");
+                ApplyPreviewState();
+                break;
+            case "calibration":
+                ShowCalibResult(msg.GetProperty("ok").GetBoolean());
+                break;
+            case "log":
+                Log(msg.GetProperty("msg").GetString() ?? "");
+                break;
+            case "error":
+                Log(Loc.T("Log.Error", msg.GetProperty("msg").GetString() ?? ""));
+                break;
+        }
+    }
+
+    private void UpdateStatus(JsonElement s)
+    {
+        _lastStatus = DateTime.Now;
+        SetChip(EngineDot, EngineValue, Loc.T("Engine.Running"), Good);
+
+        var fps = s.GetProperty("fps").GetDouble();
+        if (s.TryGetProperty("camera_ok", out var camOk) && !camOk.GetBoolean())
+            SetChip(CameraDot, CameraValue, Loc.T("Camera.Lost"), Bad);
+        else
+            SetChip(CameraDot, CameraValue, Loc.T("Camera.Fps", fps), fps >= 18 ? Good : fps >= 10 ? Warn : Bad);
+
+        if (s.TryGetProperty("infer_ms", out var inferEl) && inferEl.GetDouble() > 0)
+        {
+            var ms = inferEl.GetDouble();
+            SetChip(ModelDot, ModelValue, Loc.T("Model.Ms", ms), ms < 50 ? Good : ms < 90 ? Warn : Bad);
+        }
+
+        var person = s.GetProperty("person").GetBoolean();
+        SetChip(PersonDot, PersonValue, Loc.T(person ? "Person.Yes" : "Person.No"), person ? Good : Bad);
+
+        _vrState = s.GetProperty("vr").GetString() ?? "off";
+        switch (_vrState)
+        {
+            case "connected":
+                var hmd = s.GetProperty("hmd").GetBoolean();
+                SetChip(VrDot, VrValue, Loc.T(hmd ? "Vr.Connected" : "Vr.NoHmd"), hmd ? Good : Warn);
+                break;
+            case "waiting":
+                SetChip(VrDot, VrValue, Loc.T("Vr.Waiting"), Warn);
+                break;
+            default:
+                SetChip(VrDot, VrValue, Loc.T("Vr.Off"), Idle);
+                break;
+        }
+
+        var calibrated = s.GetProperty("calibrated").GetBoolean();
+        var saved = s.TryGetProperty("calib_saved", out var savedEl) && savedEl.GetBoolean();
+        var phase = s.GetProperty("calib_phase").ValueKind == JsonValueKind.String ? s.GetProperty("calib_phase").GetString() : null;
+        var remaining = s.GetProperty("calib_remaining").GetDouble();
+        if (phase != null)
+            SetChip(CalibDot, CalibValue, Loc.T("Calib.Running"), Warn);
+        else if (calibrated)
+            SetChip(CalibDot, CalibValue, Loc.T(saved ? "Calib.ReadySaved" : "Calib.Ready"), Good);
+        else
+            SetChip(CalibDot, CalibValue, Loc.T("Calib.None"), Warn);
+        ScaleText.Text = calibrated ? s.GetProperty("scale").GetDouble().ToString("0.00") : "";
+
+        var paused = s.GetProperty("paused").GetBoolean();
+        var sent = s.GetProperty("sent").GetInt32();
+        if (paused)
+            SetChip(SentDot, SentValue, Loc.T("Sent.Paused"), Warn);
+        else
+            SetChip(SentDot, SentValue, sent > 0 ? Loc.T("Sent.Count", sent) : Loc.T("Sent.None"), sent > 0 ? Good : Idle);
+        if (PauseButton.IsChecked != paused)
+        {
+            _syncingPause = true;
+            PauseButton.IsChecked = paused;
+            _syncingPause = false;
+        }
+
+        // Calibration overlay on the preview
+        if (phase == "countdown")
+            ShowOverlay($"{Math.Ceiling(remaining):0}", Loc.T("Overlay.Countdown"));
+        else if (phase == "collect")
+            ShowOverlay(Loc.T("Overlay.Collect"), Loc.T("Overlay.CollectSub"));
+        else if (DateTime.Now > _calibResultUntil)
+            CalibOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowCalibResult(bool ok, bool keepTime = false)
+    {
+        _calibResultOk = ok;
+        if (!keepTime)
+            _calibResultUntil = DateTime.Now.AddSeconds(ok ? 2 : 4);
+        if (ok)
+            ShowOverlay(Loc.T("Overlay.OkTitle"), Loc.T("Overlay.OkSub"));
+        else
+            ShowOverlay(Loc.T("Overlay.FailTitle"), Loc.T("Overlay.FailSub"));
+    }
+
+    private void ShowOverlay(string title, string subtitle)
+    {
+        CalibTitle.Text = title;
+        CalibSubtitle.Text = subtitle;
+        CalibOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void SetPlaceholder(string key, params object[] args)
+    {
+        _placeholder = (key, args);
+        RenderPlaceholder();
+        PlaceholderPanel.Visibility = Visibility.Visible;
+    }
+
+    private void RenderPlaceholder() => PlaceholderText.Text = Loc.T(_placeholder.Key, _placeholder.Args);
+
+    private void ResetChips()
+    {
+        SetChip(EngineDot, EngineValue, Loc.T("Engine.Off"), Idle);
+        foreach (var (dot, value) in new[] { (CameraDot, CameraValue), (ModelDot, ModelValue), (VrDot, VrValue),
+                                             (PersonDot, PersonValue), (CalibDot, CalibValue), (SentDot, SentValue) })
+            SetChip(dot, value, "—", Idle);
+    }
+
+    private static void SetChip(Ellipse dot, TextBlock value, string text, Brush color)
+    {
+        dot.Fill = color;
+        value.Text = text;
+    }
+
+    private void Log(string line)
+    {
+        if (LogBox.Text.Length > 40000)
+            LogBox.Text = LogBox.Text[^20000..];
+        LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {line}{Environment.NewLine}");
+        LogBox.ScrollToEnd();
+    }
+
+    private void Fail(string message)
+    {
+        _loading = false;
+        PlaceholderText.Text = message;
+        StartButton.IsEnabled = false;
+        Log(message);
+    }
+
+    // ------------------------------------------------------------------ control handlers
+
+    private async void StartButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_engine.IsRunning)
+            await StopEngineAsync();
+        else
+            StartEngine();
+    }
+
+    private void CalibrateButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vrState == "waiting")
+            Log(Loc.T("Log.NoVrWarning"));
+        _engine.Send(new { cmd = "calibrate" });
+    }
+
+    private void PauseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncingPause) return;
+        _engine.Send(new { cmd = "pause", value = PauseButton.IsChecked == true });
+    }
+
+    private void YawButton_Click(object sender, RoutedEventArgs e) =>
+        _engine.Send(new { cmd = "yaw", delta = double.Parse((string)((Button)sender).Tag, CultureInfo.InvariantCulture) });
+
+    private void ScaleButton_Click(object sender, RoutedEventArgs e) =>
+        _engine.Send(new { cmd = "scale", factor = double.Parse((string)((Button)sender).Tag, CultureInfo.InvariantCulture) });
+
+    private void TrackerCheck_Click(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _cfg == null) return;
+        var check = (CheckBox)sender;
+        var name = (string)check.Tag;
+        var value = check.IsChecked == true;
+        _cfg.SetTracker(name, value);
+        ScheduleSave();
+        _engine.Send(new { cmd = "tracker", name, value });
+    }
+
+    private async void CameraCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || _cfg == null || CameraCombo.SelectedItem is not ComboBoxItem item) return;
+        var index = (int)item.Tag;
+        if (_cfg.GetInt("camera_index", 0) == index) return;
+        _cfg.Set("camera_index", index);
+        SaveConfig();
+        await RestartEngineAsync("Log.CameraChanged");
+    }
+
+    private async void ModelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || _cfg == null || ModelCombo.SelectedItem is not ComboBoxItem item) return;
+        var model = (string)item.Tag;
+        if (_cfg.GetString("model", "full") == model) return;
+        _cfg.Set("model", model);
+        SaveConfig();
+        await RestartEngineAsync("Log.ModelChanged");
+    }
+
+    private async void ScanButton_Click(object sender, RoutedEventArgs e)
+    {
+        ScanButton.IsEnabled = StartButton.IsEnabled = false;
+        ScanButton.SetResourceReference(ContentProperty, "S.Camera.Scanning");
+        Log(Loc.T("Log.ScanStart"));
+        try
+        {
+            _scannedCameras = await Engine.ScanCamerasAsync();
+            RebuildCameraItems();
+            Log(Loc.T("Log.ScanDone", _scannedCameras.Count));
+        }
+        catch (Exception ex)
+        {
+            Log(Loc.T("Log.ScanFailed", ex.Message));
+        }
+        finally
+        {
+            ScanButton.SetResourceReference(ContentProperty, "S.Camera.Scan");
+            ScanButton.IsEnabled = StartButton.IsEnabled = true;
+        }
+    }
+
+    private void AutoStartCheck_Click(object sender, RoutedEventArgs e) => SetLocal("auto_start", AutoStartCheck.IsChecked == true);
+
+    private void RememberCalibCheck_Click(object sender, RoutedEventArgs e) =>
+        SetLive("remember_calibration", RememberCalibCheck.IsChecked == true);
+
+    private void ShowPreviewCheck_Click(object sender, RoutedEventArgs e)
+    {
+        SetLocal("show_preview", ShowPreviewCheck.IsChecked == true);
+        ApplyPreviewState();
+    }
+
+    private void MirrorCheck_Click(object sender, RoutedEventArgs e) => SetLive("mirror_preview", MirrorCheck.IsChecked == true);
+
+    private void FloorLockCheck_Click(object sender, RoutedEventArgs e) => SetLive("floor_lock", FloorLockCheck.IsChecked == true);
+
+    private void FootLockCheck_Click(object sender, RoutedEventArgs e) => SetLive("foot_lock", FootLockCheck.IsChecked == true);
+
+    private void SmoothSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) =>
+        SetLive("filter_min_cutoff", Math.Round(e.NewValue, 2));
+
+    private void BetaSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) =>
+        SetLive("filter_beta", Math.Round(e.NewValue, 2));
+
+    private void DepthSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) =>
+        SetLive("depth_smoothing", Math.Round(e.NewValue, 2));
+
+    private void VisibilitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (VisibilityText != null) VisibilityText.Text = e.NewValue.ToString("0.00");
+        SetLive("min_visibility", Math.Round(e.NewValue, 2));
+    }
+
+    // ------------------------------------------------------------------ driver
+
+    private void RefreshDriverStatus()
+    {
+        if (AppPaths.Root == null) return;
+        var installed = DriverManager.IsInstalled();
+        DriverDot.Fill = installed ? Good : Bad;
+        DriverStatusText.Text = Loc.T(installed ? "Driver.Installed" : "Driver.NotInstalled");
+    }
+
+    private async void InstallDriverButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DriverManager.IsSteamVrRunning())
+        {
+            MessageBox.Show(this, Loc.T("Driver.CloseSteamVr"), "WebcamFBT", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        await RunDriverAction(DriverManager.InstallAsync, "Driver.InstallDone");
+    }
+
+    private async void UninstallDriverButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DriverManager.IsSteamVrRunning())
+        {
+            MessageBox.Show(this, Loc.T("Driver.CloseSteamVr"), "WebcamFBT", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (MessageBox.Show(this, Loc.T("Driver.ConfirmUninstall"), "WebcamFBT",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        await RunDriverAction(DriverManager.UninstallAsync, "Driver.UninstallDone");
+    }
+
+    private async Task RunDriverAction(Func<Task<string>> action, string doneKey)
+    {
+        InstallDriverButton.IsEnabled = UninstallDriverButton.IsEnabled = false;
+        try
+        {
+            var output = await action();
+            if (!string.IsNullOrWhiteSpace(output)) Log(output);
+            Log(Loc.T(doneKey));
+        }
+        catch (Exception ex)
+        {
+            Log(Loc.T("Driver.Failed", ex.Message));
+        }
+        finally
+        {
+            InstallDriverButton.IsEnabled = UninstallDriverButton.IsEnabled = !_engine.IsRunning;
+            RefreshDriverStatus();
+        }
+    }
+
+    // ------------------------------------------------------------------ closing
+
+    protected override async void OnClosing(CancelEventArgs e)
+    {
+        if (_closeAllowed || !_engine.IsRunning)
+        {
+            SaveConfig();
+            base.OnClosing(e);
+            return;
+        }
+        // Let the engine release the camera and SteamVR before the window goes away.
+        e.Cancel = true;
+        IsEnabled = false;
+        await _engine.StopAsync();
+        _closeAllowed = true;
+        Close();
+    }
+}

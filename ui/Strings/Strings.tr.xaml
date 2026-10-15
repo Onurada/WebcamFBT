@@ -1,0 +1,147 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Türkçe. Yeni bir dil eklemek için bu dosyayı kopyalayıp çevir ve Loc.Languages listesine ekle. -->
+
+    <!-- Durum çipleri -->
+    <sys:String x:Key="S.Chip.Engine">Motor</sys:String>
+    <sys:String x:Key="S.Chip.Camera">Kamera</sys:String>
+    <sys:String x:Key="S.Chip.Model">Model</sys:String>
+    <sys:String x:Key="S.Chip.SteamVR">SteamVR</sys:String>
+    <sys:String x:Key="S.Chip.Person">Kişi</sys:String>
+    <sys:String x:Key="S.Chip.Calibration">Kalibrasyon</sys:String>
+    <sys:String x:Key="S.Chip.Trackers">Tracker</sys:String>
+
+    <sys:String x:Key="S.Engine.Off">kapalı</sys:String>
+    <sys:String x:Key="S.Engine.Starting">başlıyor</sys:String>
+    <sys:String x:Key="S.Engine.Running">çalışıyor</sys:String>
+    <sys:String x:Key="S.Engine.Error">hata</sys:String>
+    <sys:String x:Key="S.Engine.NoResponse">yanıt yok</sys:String>
+    <sys:String x:Key="S.Camera.Fps">{0:0} FPS</sys:String>
+    <sys:String x:Key="S.Camera.Lost">bağlantı koptu</sys:String>
+    <sys:String x:Key="S.Model.Ms">{0:0} ms</sys:String>
+    <sys:String x:Key="S.Vr.Connected">bağlı</sys:String>
+    <sys:String x:Key="S.Vr.NoHmd">kask görünmüyor</sys:String>
+    <sys:String x:Key="S.Vr.Waiting">bekleniyor</sys:String>
+    <sys:String x:Key="S.Vr.Off">kapalı (test)</sys:String>
+    <sys:String x:Key="S.Person.Yes">görünüyor</sys:String>
+    <sys:String x:Key="S.Person.No">yok</sys:String>
+    <sys:String x:Key="S.Calib.Running">yapılıyor…</sys:String>
+    <sys:String x:Key="S.Calib.Ready">hazır</sys:String>
+    <sys:String x:Key="S.Calib.ReadySaved">hazır (kayıtlı)</sys:String>
+    <sys:String x:Key="S.Calib.None">yok (F8)</sys:String>
+    <sys:String x:Key="S.Sent.Paused">duraklatıldı</sys:String>
+    <sys:String x:Key="S.Sent.Count">{0} gönderiliyor</sys:String>
+    <sys:String x:Key="S.Sent.None">gönderilmiyor</sys:String>
+
+    <!-- Önizleme -->
+    <sys:String x:Key="S.Placeholder.Off">Motor kapalı. Başlamak için sağdaki Başlat'a bas.</sys:String>
+    <sys:String x:Key="S.Placeholder.Starting">Motor başlatılıyor… (yaklaşık 5–10 sn)</sys:String>
+    <sys:String x:Key="S.Placeholder.Camera">Kamera açılıyor…</sys:String>
+    <sys:String x:Key="S.Placeholder.Crashed">Motor beklenmedik şekilde durdu (kod {0}). Ayrıntılar aşağıdaki kayıtta.</sys:String>
+    <sys:String x:Key="S.Placeholder.PreviewOff">Önizleme kapalı. Takip arka planda devam ediyor.</sys:String>
+    <sys:String x:Key="S.Overlay.Countdown">Dik dur, düz ileri bak</sys:String>
+    <sys:String x:Key="S.Overlay.Collect">Kıpırdama…</sys:String>
+    <sys:String x:Key="S.Overlay.CollectSub">Ölçüm yapılıyor</sys:String>
+    <sys:String x:Key="S.Overlay.OkTitle">Kalibrasyon tamam ✓</sys:String>
+    <sys:String x:Key="S.Overlay.OkSub">Şimdi oyundaki FBT kalibrasyonunu yapabilirsin</sys:String>
+    <sys:String x:Key="S.Overlay.FailTitle">Kalibrasyon başarısız</sys:String>
+    <sys:String x:Key="S.Overlay.FailSub">Kask takılı olmalı ve baştan ayağa tüm vücudun görünmeli</sys:String>
+
+    <!-- Genel -->
+    <sys:String x:Key="S.General.Title">Genel</sys:String>
+    <sys:String x:Key="S.General.Language">Dil</sys:String>
+    <sys:String x:Key="S.General.AutoStart">Uygulama açılınca motoru başlat</sys:String>
+    <sys:String x:Key="S.General.RememberCalib">Kalibrasyonu hatırla (kamera yerinde kaldıkça)</sys:String>
+    <sys:String x:Key="S.General.ShowPreview">Kamera önizlemesini göster</sys:String>
+    <sys:String x:Key="S.General.Hint">Pencere küçültülünce önizleme kendiliğinden durur ve işlemci oyuna kalır.</sys:String>
+
+    <!-- Kontrol -->
+    <sys:String x:Key="S.Control.Title">Kontrol</sys:String>
+    <sys:String x:Key="S.Control.Start">▶  Başlat</sys:String>
+    <sys:String x:Key="S.Control.Stop">■  Durdur</sys:String>
+    <sys:String x:Key="S.Control.Calibrate">Kalibre et (F8)</sys:String>
+    <sys:String x:Key="S.Control.Pause">Duraklat (F9)</sys:String>
+    <sys:String x:Key="S.Control.NoVr">SteamVR olmadan test et (sadece önizleme)</sys:String>
+    <sys:String x:Key="S.Control.Hint">Kalibrasyon: kask takılı, kameranın önünde dik dur ve düz ileri bak. İlk bipten sonra 3 sn, ikinci bipte 2 sn kıpırdama.</sys:String>
+
+    <!-- İnce ayar -->
+    <sys:String x:Key="S.Fine.Title">İnce ayar</sys:String>
+    <sys:String x:Key="S.Fine.Yaw">Kamera yönü</sys:String>
+    <sys:String x:Key="S.Fine.Scale">Ölçek</sys:String>
+    <sys:String x:Key="S.Fine.Hint">Kalibrasyondan sonra bacaklar yana kayık ya da boy yanlışsa kullan.</sys:String>
+
+    <!-- Tracker'lar -->
+    <sys:String x:Key="S.Trackers.Title">Tracker'lar</sys:String>
+    <sys:String x:Key="S.Trackers.Hip">Kalça</sys:String>
+    <sys:String x:Key="S.Trackers.Chest">Göğüs</sys:String>
+    <sys:String x:Key="S.Trackers.LeftFoot">Sol ayak</sys:String>
+    <sys:String x:Key="S.Trackers.RightFoot">Sağ ayak</sys:String>
+    <sys:String x:Key="S.Trackers.LeftKnee">Sol diz</sys:String>
+    <sys:String x:Key="S.Trackers.RightKnee">Sağ diz</sys:String>
+    <sys:String x:Key="S.Trackers.LeftElbow">Sol dirsek</sys:String>
+    <sys:String x:Key="S.Trackers.RightElbow">Sağ dirsek</sys:String>
+    <sys:String x:Key="S.Trackers.Hint">En sağlamı kalça + iki ayak. Dirsek, diz ve göğüs daha gürültülüdür.</sys:String>
+
+    <!-- Kamera ve model -->
+    <sys:String x:Key="S.Camera.Title">Kamera ve model</sys:String>
+    <sys:String x:Key="S.Camera.Label">Kamera</sys:String>
+    <sys:String x:Key="S.Camera.Scan">Tara</sys:String>
+    <sys:String x:Key="S.Camera.Scanning">Taranıyor…</sys:String>
+    <sys:String x:Key="S.Camera.Item">Kamera {0}  ({1}×{2})</sys:String>
+    <sys:String x:Key="S.Camera.ItemSimple">Kamera {0}</sys:String>
+    <sys:String x:Key="S.Camera.NotFound">Kamera {0} (bulunamadı)</sys:String>
+    <sys:String x:Key="S.Camera.Model">Model</sys:String>
+    <sys:String x:Key="S.Camera.ModelLite">Hızlı (lite)</sys:String>
+    <sys:String x:Key="S.Camera.ModelFull">Dengeli (full)</sys:String>
+    <sys:String x:Key="S.Camera.ModelHeavy">Hassas, yavaş (heavy)</sys:String>
+    <sys:String x:Key="S.Camera.Mirror">Önizlemeyi ayna gibi göster</sys:String>
+    <sys:String x:Key="S.Camera.Hint">Kamera ya da model değişince motor kendini yeniden başlatır. Tarama için motor kapalı olmalı. İyi ışık kameranın saniyedeki kare sayısını artırır.</sys:String>
+
+    <!-- Yumuşatma -->
+    <sys:String x:Key="S.Smooth.Title">Yumuşatma</sys:String>
+    <sys:String x:Key="S.Smooth.Jitter">Titreme azaltma</sys:String>
+    <sys:String x:Key="S.Smooth.JitterLow">hızlı tepki</sys:String>
+    <sys:String x:Key="S.Smooth.JitterHigh">daha yumuşak</sys:String>
+    <sys:String x:Key="S.Smooth.Beta">Hızlı harekette gecikme azaltma</sys:String>
+    <sys:String x:Key="S.Smooth.BetaLow">az</sys:String>
+    <sys:String x:Key="S.Smooth.BetaHigh">çok</sys:String>
+    <sys:String x:Key="S.Smooth.Depth">Derinlik yumuşatma (kameraya yaklaşma/uzaklaşma)</sys:String>
+    <sys:String x:Key="S.Smooth.DepthLow">kapalı</sys:String>
+    <sys:String x:Key="S.Smooth.DepthHigh">güçlü</sys:String>
+    <sys:String x:Key="S.Smooth.Visibility">Görünürlük eşiği</sys:String>
+    <sys:String x:Key="S.Smooth.FloorLock">Ayakları zeminin altına sokma</sys:String>
+    <sys:String x:Key="S.Smooth.FootLock">Yerdeki ayağı sabitle (kaymayı önler)</sys:String>
+    <sys:String x:Key="S.Smooth.Hint">Görünürlük eşiğinin altındaki eklemler son konumunda bekler; az görünen eklemler daha güçlü yumuşatılır.</sys:String>
+
+    <!-- Sürücü -->
+    <sys:String x:Key="S.Driver.Title">SteamVR sürücüsü</sys:String>
+    <sys:String x:Key="S.Driver.Install">Kur / onar</sys:String>
+    <sys:String x:Key="S.Driver.Uninstall">Kaldır</sys:String>
+    <sys:String x:Key="S.Driver.Hint">Kurma ve kaldırma SteamVR kapalıyken yapılır.</sys:String>
+    <sys:String x:Key="S.Driver.Installed">Kurulu</sys:String>
+    <sys:String x:Key="S.Driver.NotInstalled">Kurulu değil</sys:String>
+    <sys:String x:Key="S.Driver.CloseSteamVr">Önce SteamVR'ı kapat, sonra tekrar dene.</sys:String>
+    <sys:String x:Key="S.Driver.ConfirmUninstall">WebcamFBT sürücüsü SteamVR'dan kaldırılsın mı?</sys:String>
+    <sys:String x:Key="S.Driver.InstallDone">Sürücü kuruldu ve tracker rolleri ayarlandı.</sys:String>
+    <sys:String x:Key="S.Driver.UninstallDone">Sürücü kaldırıldı.</sys:String>
+    <sys:String x:Key="S.Driver.Failed">Sürücü işlemi başarısız: {0}</sys:String>
+
+    <sys:String x:Key="S.Footer">F8 = kalibrasyon, F9 = duraklat. Bu kısayollar oyundayken de çalışır.</sys:String>
+
+    <!-- Kayıt -->
+    <sys:String x:Key="S.Log.Folder">Klasör: {0}</sys:String>
+    <sys:String x:Key="S.Log.RootMissing">WebcamFBT klasörü bulunamadı. Bu programı WebcamFBT klasörünün içinden çalıştır.</sys:String>
+    <sys:String x:Key="S.Log.PythonMissing">Python ortamı bulunamadı: {0}</sys:String>
+    <sys:String x:Key="S.Log.ConfigError">Ayar dosyası okunamadı: {0}</sys:String>
+    <sys:String x:Key="S.Log.SaveError">Ayarlar kaydedilemedi: {0}</sys:String>
+    <sys:String x:Key="S.Log.StartError">Motor başlatılamadı: {0}</sys:String>
+    <sys:String x:Key="S.Log.Restarting">{0}, motor yeniden başlatılıyor…</sys:String>
+    <sys:String x:Key="S.Log.CameraChanged">Kamera değişti</sys:String>
+    <sys:String x:Key="S.Log.ModelChanged">Model değişti</sys:String>
+    <sys:String x:Key="S.Log.NoVrWarning">Uyarı: SteamVR bağlı değil, kalibrasyon için kask gerekli.</sys:String>
+    <sys:String x:Key="S.Log.ScanStart">Kameralar taranıyor (birkaç saniye sürebilir)…</sys:String>
+    <sys:String x:Key="S.Log.ScanDone">{0} kamera bulundu.</sys:String>
+    <sys:String x:Key="S.Log.ScanFailed">Tarama başarısız: {0}</sys:String>
+    <sys:String x:Key="S.Log.Error">HATA: {0}</sys:String>
+</ResourceDictionary>
