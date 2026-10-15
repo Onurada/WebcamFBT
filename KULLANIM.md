@@ -41,7 +41,7 @@ Uygulama bağlı kaskı tanır ve SteamVR göstergesinde adını gösterir (ör.
    - **VRChat:** T-pose ver, iki tetiğe bas.
    - **Vivecraft:** Önce *Playermodel Settings* altında model tipini *Split Arms* ya da *Split Arms/Legs* yap, sonra *Calibrate FBT…* çalıştır.
 
-> Kalibrasyon kaydedilir ve bir sonraki açılışta kendiliğinden yüklenir. **Kamerayı oynatırsan** F8 ile yenile. Kaskta merkezleme yaparsan uygulama bunu fark edip kendisi düzeltir; kayık görünürse yine F8.
+> **Her oturumda F8 ile kalibre et.** Quest'in takip alanı oturumdan oturuma (ve kask uykuya girip uyandığında) değişebildiği için eski kalibrasyon kullanılmaz; kalibre edilene kadar tracker gönderilmez. Kamerayı oynatırsan ya da kaskta merkezleme yaparsan da F8.
 > Yeni tracker'ları (dirsek, diz…) açtıysan oyundaki FBT kalibrasyonunu da yenile.
 
 ## İlk açılış ve bildirim alanı
@@ -78,7 +78,7 @@ Varsayılan tek kameradır. *Kamera ve model* bölümündeki **Ek kamera 1 / 2**
 |---|---|
 | Durum çipleri | Motor, kamera FPS'i, modelin bir karede harcadığı süre (ms), SteamVR, kişi, kalibrasyon, gönderilen tracker sayısı |
 | Kontrol | Başlat/Durdur, Kalibre et (F8), Duraklat (F9), SteamVR olmadan test |
-| Genel | **Dil (Türkçe/English)**, açılışta motoru başlatma, kalibrasyonu hatırlama, önizlemeyi gösterme |
+| Genel | **Dil (Türkçe/English)**, açılışta motoru başlatma, kalibrasyonu saklama (isteğe bağlı, kapalı), önizlemeyi gösterme |
 | İnce ayar | Kamera yönünü ±2° döndürür, ölçeği değiştirir (kalibrasyon sonrası küçük düzeltmeler) |
 | Tracker'lar | Hangi vücut noktalarının gönderileceği, anında uygulanır |
 | Kamera ve model | Kamera seçimi ve tarama, model seçimi: Hızlı (lite, 22 ms) / Dengeli (full, 37 ms) / Hassas (heavy, 133 ms) |
@@ -113,7 +113,7 @@ Hatalara karşı önlemler:
 - **Ayar doğrulama:** Geçersiz değerler varsayılana döner ya da sınırlara çekilir. Bozuk `config.json` dosyası `config.json.broken-<tarih>` olarak saklanır, uygulama varsayılanlarla açılır.
 - **Anlaşılır hata mesajları:** Kamera açılmıyorsa, kamera başka bir programda açıksa, sürücü yüklü değilse ya da UDP portu meşgulse ne yapman gerektiği yazar ve iki kalın bip sesi duyulur.
 - **Sürücü sürüm kontrolü:** SteamVR eski bir WebcamFBT sürücüsü çalıştırıyorsa uyarır.
-- **Kaskta merkezleme:** Takip alanı değişirse (ör. Quest'te Meta butonuna basılı tutup merkezleme) kalibrasyon otomatik düzeltilir ve uyarı verilir. Kayık görünürse F8.
+- **Kaskta merkezleme:** SteamVR takip alanının değiştiğini bildirirse uygulama uyarır (en fazla 5 dakikada bir); kayık görünürse F8. Kalibrasyon kendiliğinden değiştirilmez: ilk sürümdeki otomatik düzeltme, kask uykudan uyandığında yanlış devreye girip vücudu kaydırdığı için kaldırıldı.
 
 ## Sınırlar (tek kamera)
 İkinci bir kamera eklemek (yukarıya bak) ilk iki maddeyi büyük ölçüde azaltır.

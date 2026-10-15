@@ -41,7 +41,7 @@ The app recognizes the connected headset and shows its name on the SteamVR chip 
    - **VRChat:** T-pose, then pull both triggers.
    - **Vivecraft:** first set the model type to *Split Arms* or *Split Arms/Legs* under *Playermodel Settings*, then run *Calibrate FBT…*.
 
-> The calibration is saved and loaded automatically next time. **If you move the camera**, press F8 to redo it. If you recenter the headset, the app notices and corrects itself; press F8 if anything looks off.
+> **Calibrate with F8 every session.** A Quest's tracking space can change between sessions (and when the headset wakes from standby), so an old calibration is not reused; no trackers are sent until you calibrate. Press F8 again if you move the camera or recenter the headset.
 > If you enabled new trackers (elbows, knees…), redo the in-game full body calibration too.
 
 ## First launch and the notification area
@@ -78,7 +78,7 @@ Open it with *Camera and model → Setup assistant…* while the engine runs. It
 |---|---|
 | Status chips | Engine, camera FPS, time the model spends per frame (ms), SteamVR, person, calibration, number of trackers sent |
 | Control | Start/Stop, Calibrate (F8), Pause (F9), test without SteamVR |
-| General | **Language (Türkçe/English)**, start the engine on launch, remember calibration, show preview |
+| General | **Language (Türkçe/English)**, start the engine on launch, keep calibration (optional, off), show preview |
 | Fine tuning | Rotates the camera direction ±2° and changes the scale (small corrections after calibrating) |
 | Trackers | Which body points are sent, applied immediately |
 | Camera and model | Camera selection and scan, model: Fast (lite, 22 ms) / Balanced (full, 37 ms) / Accurate (heavy, 133 ms) |
@@ -113,7 +113,7 @@ What protects against failures:
 - **Settings validation:** invalid values fall back to defaults or are clamped. A broken `config.json` is kept as `config.json.broken-<date>` and the app starts with defaults.
 - **Clear error messages:** if the camera can't be opened, is used by another program, the driver isn't installed or its UDP port is taken, you get a message saying what to do, plus two low beeps.
 - **Driver version check:** warns when SteamVR still runs an older WebcamFBT driver.
-- **Headset recenter:** when the tracking space changes (e.g. holding the Meta button on a Quest), the calibration is corrected automatically and you get a warning. Press F8 if anything looks off.
+- **Headset recenter:** if SteamVR reports a tracking space change, the app warns you (at most every 5 minutes); press F8 if anything looks off. The calibration is never changed on its own: the automatic correction in the first version misfired when the headset woke from standby and threw the body off, so it was removed.
 
 ## Limits (single camera)
 Adding a second camera (see above) largely reduces the first two.

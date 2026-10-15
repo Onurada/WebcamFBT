@@ -109,7 +109,7 @@ DEFAULTS = {
     "mirror_preview": True,
     "udp_port": 39570,
     "language": None,  # None = follow the Windows display language
-    "remember_calibration": True,
+    "remember_calibration": False,  # a Quest's tracking space changes between sessions: calibrate each time
     "high_priority": True,
     "preview_fps": 20,
     "hotkey_calibrate": "F8",
@@ -368,15 +368,21 @@ class FootLock:
 # --------------------------------------------------------------------------- io
 
 class Camera:
-    """Grabs frames on its own thread and reconnects by itself if the camera drops out."""
+    """Grabs frames on its own thread and reconnects by itself if the camera drops out.
+
+    Two failure modes: read() keeps failing (unplugged, busy) - noticed by the reader thread - and
+    read() never returns at all (seen after the PC wakes from sleep) - noticed by check_stall(),
+    which the main loop calls; the stuck thread is abandoned and a fresh one reopens the camera."""
 
     LOST_AFTER = 2.0  # s without frames before the camera counts as disconnected
+    STALL_AFTER = 4.0  # s without frames before a hanging read() is given up on
 
     def __init__(self, index, width, height, fps):
         self.index, self.width, self.height, self.fps = index, width, height, fps
-        self.cap = self._open()
-        if self.cap is None:
+        cap = self._open()
+        if cap is None:
             raise RuntimeError(T("camera_open_failed", i=index))
+        self.cap = cap
         self.frame, self.frame_id, self.stamp = None, 0, 0.0
         self.last_ok = time.monotonic()
         self.lost = False
@@ -384,8 +390,14 @@ class Camera:
         self.events = queue.Queue()  # message keys for the main thread to log
         self.lock = threading.Lock()
         self.running = True
-        self.thread = threading.Thread(target=self._run, daemon=True)
-        self.thread.start()
+        self.generation = 0
+        self.thread = self._start_reader(cap)
+
+    def _start_reader(self, cap):
+        self.generation += 1
+        t = threading.Thread(target=self._run, args=(self.generation, cap), daemon=True)
+        t.start()
+        return t
 
     def _open(self):
         cap = cv2.VideoCapture(self.index, cv2.CAP_DSHOW)
@@ -403,9 +415,11 @@ class Camera:
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         return cap
 
-    def _run(self):
-        while self.running:
-            ok, f = self.cap.read() if self.cap is not None else (False, None)
+    def _run(self, generation, cap):
+        while self.running and generation == self.generation:
+            ok, f = cap.read() if cap is not None else (False, None)
+            if generation != self.generation:
+                return  # replaced by check_stall() while this read() hung; leave the old capture alone
             now = time.monotonic()
             if ok:
                 if self.lost:
@@ -420,13 +434,23 @@ class Camera:
                 self.lost = True
                 self.events.put("camera_lost" if self.ever_ok else "camera_no_frames")
             if self.lost:
-                if self.cap is not None:
-                    self.cap.release()
+                if cap is not None:
+                    cap.release()
                 time.sleep(1.0)
-                if self.running:
-                    self.cap = self._open()
+                if self.running and generation == self.generation:
+                    cap = self.cap = self._open()
             else:
                 time.sleep(0.01)
+        if cap is not None and generation == self.generation:
+            cap.release()
+
+    def check_stall(self, now):
+        """Main thread: if no frame came for STALL_AFTER s and the reader did not notice, it is stuck."""
+        if self.running and not self.lost and now - self.last_ok > self.STALL_AFTER:
+            self.lost = True
+            self.events.put("camera_lost" if self.ever_ok else "camera_no_frames")
+            self.cap = None
+            self.thread = self._start_reader(None)
 
     def latest(self):
         with self.lock:
@@ -441,7 +465,7 @@ class Camera:
     def close(self):
         self.running = False
         self.thread.join(timeout=2)
-        if self.cap is not None:
+        if self.cap is not None and not self.thread.is_alive():
             self.cap.release()
 
 
@@ -463,35 +487,6 @@ class HmdPose:
         return self.std_rot @ self.rot.T @ np.asarray(v, float)
 
 
-def rotation_angle(R):
-    return math.acos(float(np.clip((np.trace(R) - 1) / 2, -1.0, 1.0)))
-
-
-def space_jump(prev, cur, max_gap=0.25, pos_tol=0.25, ang_tol=math.radians(30)):
-    """If the headset's tracking space was reset (e.g. a recenter) between two poses, returns the
-    transform (yaw rotation, translation) from the old space to the new one, else None.
-    A real head movement is backed by the reported velocities; a space reset is not."""
-    dt = cur.t - prev.t
-    if dt <= 0 or dt > max_gap:
-        return None
-    expected = prev.pos + (prev.vel + cur.vel) / 2 * dt
-    pos_err = np.linalg.norm(cur.pos - expected)
-    turn = cur.rot @ prev.rot.T
-    ang_err = rotation_angle(turn) - np.linalg.norm((prev.ang_vel + cur.ang_vel) / 2) * dt
-    if pos_err < pos_tol and ang_err < ang_tol:
-        return None
-    yaw = math.atan2(turn[0, 2], turn[2, 2])  # keep the yaw part; a recenter never tilts the floor
-    R = rot_y(yaw)
-    return R, cur.pos - R @ prev.pos
-
-
-def apply_space_jump(cal, jump):
-    """Moves a calibration into the headset's new tracking space."""
-    R, t = jump
-    cal.R = R @ cal.R
-    cal.floor += float(t[1])
-
-
 class VRLink:
     """Background OpenVR client used only to read the headset pose."""
 
@@ -504,10 +499,11 @@ class VRLink:
         self.next_try = 0.0
         self.raw_arr = (openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount)()
         self.std_arr = (openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount)()
-        self.prev = None
-        self.jump = None  # set by poll() when the tracking space jumped; read and cleared by the caller
         self.headset = None  # {"name", "family", "connection"} once connected
-        self.space_event = False  # SteamVR announced a recenter / chaperone change
+        self.just_connected = False  # set on (re)connect, read and cleared by the main loop
+        # SteamVR announced a recenter / chaperone change. Only reported: Steam Link sends these on
+        # every wake from standby too, and moving the calibration on such events wrecked tracking.
+        self.space_event = False
 
     def play_area(self):
         """SteamVR play area as (centre x, centre z, width, depth) in standing space, or None."""
@@ -558,7 +554,6 @@ class VRLink:
         except Exception:
             pass
         self.sys = None
-        self.prev = None
         self.headset = None
 
     def _identify_headset(self):
@@ -582,6 +577,7 @@ class VRLink:
             try:
                 self.sys = openvr.init(openvr.VRApplication_Background)
                 self.headset = self._identify_headset()
+                self.just_connected = True
                 log(T("vr_connected", name=self.headset["name"], conn=T("conn_" + self.headset["connection"])))
             except Exception:
                 return None
@@ -608,14 +604,8 @@ class VRLink:
         sm = std[0].mDeviceToAbsoluteTracking
         sm = np.array([[sm[i][j] for j in range(4)] for i in range(3)])
         v, w = raw[0].vVelocity, raw[0].vAngularVelocity
-        pose = HmdPose(m[:, :3], m[:, 3], sm[1][3], np.array([v[0], v[1], v[2]]), np.array([w[0], w[1], w[2]]),
+        return HmdPose(m[:, :3], m[:, 3], sm[1][3], np.array([v[0], v[1], v[2]]), np.array([w[0], w[1], w[2]]),
                        time.monotonic(), sm[:, :3], sm[:, 3])
-        if self.prev is not None:
-            jump = space_jump(self.prev, pose)
-            if jump is not None:
-                self.jump = jump
-        self.prev = pose
-        return pose
 
 
 class Sender:
@@ -867,10 +857,10 @@ class Calibration:
             return {str(data["camera_index"]): data}
         return {}
 
-    def save(self, camera_index=None):
+    def save(self, camera_index=None, headset_name=None):
         index = self.index if camera_index is None else camera_index
         cameras = self._read_file()
-        cameras[str(index)] = {"R": self.R.tolist(), "scale": self.scale, "floor": self.floor,
+        cameras[str(index)] = {"R": self.R.tolist(), "scale": self.scale, "floor": self.floor, "headset": headset_name,
                                "saved_at": time.strftime("%Y-%m-%d %H:%M:%S")}
         try:
             with open(CALIBRATION_FILE, "w", encoding="utf-8") as f:
@@ -878,9 +868,12 @@ class Calibration:
         except OSError as e:
             log(T("error", err=e))
 
-    def load(self, camera_index=None):
+    def load(self, camera_index=None, headset_name=None):
+        """A calibration only fits the headset (and its tracking space) it was made with."""
         index = self.index if camera_index is None else camera_index
         entry = self._read_file().get(str(index))
+        if entry is None or entry.get("headset") != headset_name:
+            return False
         try:
             self.R = np.array(entry["R"], dtype=float).reshape(3, 3)
             self.scale = float(entry["scale"])
@@ -960,18 +953,13 @@ class CalibrationSet:
                 if scale is not None:
                     c.scale *= scale
 
-    def apply_jump(self, jump):
+    def save(self, headset_name=None):
         for c in self.cals.values():
             if c.ready:
-                apply_space_jump(c, jump)
+                c.save(headset_name=headset_name)
 
-    def save(self):
-        for c in self.cals.values():
-            if c.ready:
-                c.save()
-
-    def load(self):
-        return [i for i, c in self.cals.items() if c.load()]
+    def load(self, headset_name=None):
+        return [i for i, c in self.cals.items() if c.load(headset_name=headset_name)]
 
 
 # --------------------------------------------------------------------------- poses
@@ -1367,6 +1355,7 @@ class State:
         self.paused = False
         self.preview = True
         self.quit = False
+        self.headset_name = None  # set when SteamVR connects
 
     def toggle_pause(self):
         self.paused = not self.paused
@@ -1374,7 +1363,7 @@ class State:
 
     def save_calibration(self):
         if self.cfg["remember_calibration"]:
-            self.cal.save()
+            self.cal.save(self.headset_name)
 
     def adjust_yaw(self, deg):
         if self.cal.ready:
@@ -1580,9 +1569,10 @@ def run(args, cfg, ipc):
     hotkeys = Hotkeys({"calibrate": cfg["hotkey_calibrate"], "pause": cfg["hotkey_pause"]})
     for action, key in hotkeys.failed:
         log(T("hotkey_failed", key=key))
-    recenter_warn_at = None  # a SteamVR space event without a measurable jump: warn a bit later
     seen = {w.index: 0 for w in workers}
-    last_status = last_preview = last_assistant = 0.0
+    last_status = last_preview = last_assistant = last_vr_poll = 0.0
+    last_space_warning = -1e9
+    hmd = None
     win = "WebcamFBT"
     indices = [w.index for w in workers]
     if ipc:
@@ -1591,10 +1581,6 @@ def run(args, cfg, ipc):
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
         log(T("help"))
     log(T("engine_started", cam=", ".join(map(str, indices)), model=cfg["model"]) + f" (v{VERSION})")
-    if cfg["remember_calibration"]:
-        loaded = cal.load()
-        if loaded:
-            log(T("calib_loaded", cams=", ".join(map(str, loaded))))
 
     try:
         while not st.quit:
@@ -1603,9 +1589,11 @@ def run(args, cfg, ipc):
                     break
                 while not ipc.commands.empty():
                     st.apply(ipc.commands.get_nowait(), time.monotonic())
+            now = time.monotonic()
             for w in workers:
                 if w.error:
                     raise RuntimeError(f"camera {w.index}: {w.error}")
+                w.cam.check_stall(now)
                 while not w.cam.events.empty():
                     event = w.cam.events.get_nowait()
                     log(T(event, i=w.index))
@@ -1618,45 +1606,42 @@ def run(args, cfg, ipc):
                 if rid != seen[w.index]:
                     seen[w.index] = rid
                     new[w.index] = res
-            if not new:
-                time.sleep(0.002)
-                if ipc and time.monotonic() - last_status >= 0.5:  # keep the UI informed while cameras are gone
-                    last_status = time.monotonic()
-                    emit_status(ipc, args, vr, st, driver, person=False, hmd=False, sent=0, now=last_status)
-                continue
-            now = time.monotonic()
-            hmd = vr.poll()
-            st.assistant.record(hmd)
 
-            # Headset recenter / tracking space reset: move every calibration along with the space.
-            if vr.jump is not None:
-                jump, vr.jump = vr.jump, None
-                recenter_warn_at = None
-                if cal.ready and cal.phase is None:
-                    cal.apply_jump(jump)
-                    st.feet = FootLock()
-                    st.last_poses.clear()
-                    st.save_calibration()
-                    log(T("recenter_fixed"))
-                    beep_warning()
-                    if ipc:
-                        ipc.emit(type="recenter", corrected=True)
+            # SteamVR and the hotkeys are served even while no camera delivers frames.
+            if new or now - last_vr_poll >= 0.1:
+                last_vr_poll = now
+                hmd = vr.poll()
+                st.assistant.record(hmd)
+            if vr.just_connected:
+                vr.just_connected = False
+                st.headset_name = vr.headset["name"]
+                if cfg["remember_calibration"] and not cal.ready:
+                    loaded = cal.load(st.headset_name)
+                    if loaded:
+                        log(T("calib_loaded", cams=", ".join(map(str, loaded))))
+                if not cal.ready:
+                    log(T("calib_needed"))
+                    beep(500, 200)
             if vr.space_event:
                 vr.space_event = False
-                recenter_warn_at = now + 1.0
-            if recenter_warn_at is not None and now >= recenter_warn_at:
-                recenter_warn_at = None
-                if cal.ready:
+                # Only a hint, at most every 5 minutes: Steam Link reports this on every wake from standby.
+                if cal.ready and now - last_space_warning > 300:
+                    last_space_warning = now
                     log(T("recenter_maybe"))
-                    beep_warning()
                     if ipc:
                         ipc.emit(type="recenter", corrected=False)
-
             for action in hotkeys.pressed():
                 if action == "calibrate":
                     cal.start(now)
                 elif action == "pause":
                     st.toggle_pause()
+
+            if not new:
+                time.sleep(0.002)
+                if ipc and now - last_status >= 0.5:  # keep the UI informed while cameras are gone
+                    last_status = now
+                    emit_status(ipc, args, vr, st, driver, person=False, hmd=hmd is not None, sent=0, now=now)
+                continue
             results = cal.update(now, {i: (r.P, r.vis) for i, r in new.items()}, hmd)
             if results:
                 if any(results.values()):

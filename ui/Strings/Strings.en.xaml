@@ -52,7 +52,7 @@
     <sys:String x:Key="S.General.Title">General</sys:String>
     <sys:String x:Key="S.General.Language">Language</sys:String>
     <sys:String x:Key="S.General.AutoStart">Start the engine when the app opens</sys:String>
-    <sys:String x:Key="S.General.RememberCalib">Remember calibration (while the camera stays put)</sys:String>
+    <sys:String x:Key="S.General.RememberCalib">Keep the calibration for next time (same headset, camera not moved; not recommended)</sys:String>
     <sys:String x:Key="S.General.ShowPreview">Show camera preview</sys:String>
     <sys:String x:Key="S.General.Hint">The preview pauses by itself while the window is minimized, leaving the CPU to your game.</sys:String>
 
@@ -157,7 +157,6 @@
     <sys:String x:Key="S.Vr.PortBusy">port in use</sys:String>
     <sys:String x:Key="S.Vr.DriverOutdated">old driver (restart SteamVR)</sys:String>
     <sys:String x:Key="S.Overlay.RecenterTitle">Tracking space changed</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterFixed">Calibration was corrected automatically. Press {0} if anything looks off.</sys:String>
     <sys:String x:Key="S.Overlay.RecenterMaybe">If the trackers look off, recalibrate with {0}.</sys:String>
     <sys:String x:Key="S.Calib.Check">check ({0})</sys:String>
     <sys:String x:Key="S.General.OpenLogs">Open log folder</sys:String>
@@ -256,7 +255,7 @@
     <sys:String x:Key="S.Wizard.PlacementTitle">Place the camera</sys:String>
     <sys:String x:Key="S.Wizard.PlacementText">• Put the camera in front of the play area, about 2–3 m away.&#x0a;• At waist height (~1 m off the floor), looking straight ahead.&#x0a;• Your whole body must be visible head to toe, feet included.&#x0a;• Keep the room well lit; in the dark the camera slows down.&#x0a;&#x0a;If unsure, once the engine runs, the Setup assistant under Camera and model shows on a map where to put the camera, or scores the spot you picked.</sys:String>
     <sys:String x:Key="S.Wizard.CalibrationTitle">Calibration and games</sys:String>
-    <sys:String x:Key="S.Wizard.CalibrationText">1. Start the engine, connect your headset to the PC and start SteamVR.&#x0a;2. Wearing the headset, stand in front of the camera and press {0}. After the first beep stand straight and look ahead; at the second beep hold still for 2 seconds. High beep: done.&#x0a;3. Run your game's full body calibration:&#x0a;   • VRChat: T-pose, then pull both triggers.&#x0a;   • Vivecraft: set the model type to Split Arms/Legs in Playermodel Settings, then Calibrate FBT.&#x0a;&#x0a;As long as the camera does not move, the calibration is remembered next time. If you recenter the headset in game (Quest: hold the Meta button, Rift: hold the Oculus button), the app notices and corrects the calibration itself.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Start the engine, connect your headset to the PC and start SteamVR.&#x0a;2. Wearing the headset, stand in front of the camera and press {0}. After the first beep stand straight and look ahead; at the second beep hold still for 2 seconds. High beep: done.&#x0a;3. Run your game's full body calibration:&#x0a;   • VRChat: T-pose, then pull both triggers.&#x0a;   • Vivecraft: set the model type to Split Arms/Legs in Playermodel Settings, then Calibrate FBT.&#x0a;&#x0a;Calibrate with {0} every session (and after recentering the headset or moving the camera). No trackers are sent until you do.</sys:String>
     <sys:String x:Key="S.Vr.ConnectedTo">connected · {0}</sys:String>
     <sys:String x:Key="S.Vr.Tooltip">{0} · {1}&#x0a;Recenter: {2}</sys:String>
     <sys:String x:Key="S.Conn.meta_link">Meta Horizon Link (cable or Air Link)</sys:String>
@@ -279,4 +278,6 @@
     <sys:String x:Key="S.Update.Ask">WebcamFBT {0} is out. Open the download page? Just run the new installer; your settings and calibration are kept.</sys:String>
     <sys:String x:Key="S.Update.UpToDate">WebcamFBT is up to date (version {0}).</sys:String>
     <sys:String x:Key="S.Update.Unavailable">Could not get update information: no internet connection, or the releases are not public.</sys:String>
+    <sys:String x:Key="S.Overlay.NeedCalibTitle">Calibration needed</sys:String>
+    <sys:String x:Key="S.Overlay.NeedCalibSub">Wearing the headset, stand straight in front of the camera and press {0}.&#x0a;No trackers are sent until then.</sys:String>
 </ResourceDictionary>

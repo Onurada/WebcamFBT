@@ -87,9 +87,9 @@ MESSAGES = {
               "SteamVR; if that does not help, press 'Install / repair' while SteamVR is closed.",
     },
     "driver_ok": {"tr": "SteamVR sürücüsü yeniden veri alıyor.", "en": "The SteamVR driver is receiving data again."},
-    "recenter_fixed": {
-        "tr": "Takip alanı değişti (kaskta merkezleme). Kalibrasyon otomatik düzeltildi; kayık görünürse {cal}.",
-        "en": "The tracking space changed (headset recenter). Calibration was corrected automatically; press {cal} if anything looks off.",
+    "calib_needed": {
+        "tr": "Kalibrasyon gerekli: kask takılıyken kameranın önünde dik dur ve {cal} tuşuna bas. Kalibre edilene kadar tracker gönderilmez.",
+        "en": "Calibration needed: wearing the headset, stand straight in front of the camera and press {cal}. No trackers are sent until then.",
     },
     "recenter_maybe": {
         "tr": "SteamVR takip alanının değiştiğini bildirdi. Tracker'lar kayık görünürse {cal} ile yeniden kalibre et.",

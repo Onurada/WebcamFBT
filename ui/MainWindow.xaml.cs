@@ -43,6 +43,9 @@ public partial class MainWindow : Window
     private const int MaxRestarts = 3;
     private static readonly TimeSpan RestartWindow = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan HangTimeout = TimeSpan.FromSeconds(30);
+    // Until the first status the engine may still be opening cameras (slow after the PC wakes up).
+    private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(90);
+    private bool _gotStatus;
     private readonly Queue<DateTime> _restartTimes = new();
     private bool _userStopped = true;
     private List<CameraInfo>? _scannedCameras;
@@ -168,7 +171,7 @@ public partial class MainWindow : Window
         FootLockCheck.IsChecked = cfg.GetBool("foot_lock", true);
         MirrorCheck.IsChecked = cfg.GetBool("mirror_preview", true);
         AutoStartCheck.IsChecked = cfg.GetBool("auto_start", false);
-        RememberCalibCheck.IsChecked = cfg.GetBool("remember_calibration", true);
+        RememberCalibCheck.IsChecked = cfg.GetBool("remember_calibration", false);
         ShowPreviewCheck.IsChecked = cfg.GetBool("show_preview", true);
         MinimizeToTrayCheck.IsChecked = cfg.GetBool("minimize_to_tray", true);
         CheckUpdatesCheck.IsChecked = cfg.GetBool("check_updates", true);
@@ -333,6 +336,7 @@ public partial class MainWindow : Window
             return;
         }
         _lastStatus = DateTime.Now;
+        _gotStatus = false;
         _watchdog.Start();
         SetRunningUi(true);
         SetPlaceholder("Placeholder.Starting");
@@ -395,7 +399,7 @@ public partial class MainWindow : Window
     {
         if (!_engine.IsRunning || _lastStatus == default) return;
         var silent = DateTime.Now - _lastStatus;
-        if (silent > HangTimeout)
+        if (silent > (_gotStatus ? HangTimeout : StartupTimeout))
         {
             // Killing it makes it exit with a non-zero code, which takes the restart path above.
             Log(Loc.T("Log.Hung", (int)silent.TotalSeconds));
@@ -544,11 +548,10 @@ public partial class MainWindow : Window
                 }
                 break;
             case "recenter":
-                var corrected = msg.GetProperty("corrected").GetBoolean();
                 _recenterUntil = DateTime.Now.AddSeconds(15);
                 _calibResultUntil = DateTime.Now.AddSeconds(5);
-                ShowOverlay(Loc.T("Overlay.RecenterTitle"), Loc.T(corrected ? "Overlay.RecenterFixed" : "Overlay.RecenterMaybe", CalibrateKey));
-                NotifyIfHidden(Loc.T("Overlay.RecenterTitle"), Loc.T(corrected ? "Overlay.RecenterFixed" : "Overlay.RecenterMaybe", CalibrateKey));
+                ShowOverlay(Loc.T("Overlay.RecenterTitle"), Loc.T("Overlay.RecenterMaybe", CalibrateKey));
+                NotifyIfHidden(Loc.T("Overlay.RecenterTitle"), Loc.T("Overlay.RecenterMaybe", CalibrateKey));
                 break;
             case "log":
                 Log(msg.GetProperty("msg").GetString() ?? "");
@@ -562,6 +565,7 @@ public partial class MainWindow : Window
     private void UpdateStatus(JsonElement s)
     {
         _lastStatus = DateTime.Now;
+        _gotStatus = true;
         SetChip(EngineDot, EngineValue, Loc.T("Engine.Running"), Good);
 
         var fps = s.GetProperty("fps").GetDouble();
@@ -669,6 +673,8 @@ public partial class MainWindow : Window
             ShowOverlay($"{Math.Ceiling(remaining):0}", Loc.T("Overlay.Countdown"));
         else if (phase == "collect")
             ShowOverlay(Loc.T("Overlay.Collect"), Loc.T("Overlay.CollectSub"));
+        else if (DateTime.Now > _calibResultUntil && _vrState == "connected" && s.GetProperty("hmd").GetBoolean() && !calibrated)
+            ShowOverlay(Loc.T("Overlay.NeedCalibTitle"), Loc.T("Overlay.NeedCalibSub", CalibrateKey));
         else if (DateTime.Now > _calibResultUntil)
             CalibOverlay.Visibility = Visibility.Collapsed;
     }

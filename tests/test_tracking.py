@@ -119,11 +119,16 @@ def test_calibration_file_roundtrip(tmp=os.path.join(os.environ.get("TEMP", ".")
     w.CALIBRATION_FILE = tmp
     c = w.Calibration()
     c.R, c.scale, c.floor, c.ready = w.rot_y(0.5), 1.1, -0.3, True
-    c.save(0)
+    c.save(0, headset_name="Meta Quest 3")
     d = w.Calibration()
-    assert d.load(0) and np.allclose(d.R, c.R) and d.scale == 1.1 and d.from_file
-    assert not w.Calibration().load(1)  # other camera: must not reuse
+    assert d.load(0, headset_name="Meta Quest 3") and np.allclose(d.R, c.R) and d.scale == 1.1 and d.from_file
+    assert not w.Calibration().load(1, headset_name="Meta Quest 3")  # other camera: must not reuse
+    assert not w.Calibration().load(0, headset_name="Meta Quest 2")  # other headset: must not reuse
     os.remove(tmp)
+
+
+def test_saved_calibration_off_by_default():
+    assert w.DEFAULTS["remember_calibration"] is False
 
 
 def test_config_validation():
@@ -151,37 +156,6 @@ def test_corrupt_config_is_set_aside():
     backup = os.path.join(os.path.dirname(path), problems[0][1]["backup"])
     assert os.path.exists(backup) and not os.path.exists(path)
     os.remove(backup)
-
-
-def test_recenter_is_detected_and_corrected():
-    W = skeleton()
-    P, hmd = to_camera(W), headset(W)
-    cal = calibrated(P, hmd)
-    enabled = {n: True for n in w.TRACKERS}
-    # Quest recenter: the whole tracking space turns 70° and shifts, the person did not move.
-    R, t = w.rot_y(math.radians(70)), np.array([0.4, 0.05, -1.2])
-    W2 = W @ R.T + t
-    hmd.t = 0.0
-    hmd2 = w.HmdPose(R @ hmd.rot, R @ hmd.pos + t, hmd.height, t=0.05)
-    jump = w.space_jump(hmd, hmd2)
-    assert jump is not None
-    w.apply_space_jump(cal, jump)
-    poses = w.compute_poses(P, np.ones(33), hmd2, cal, cfg(), enabled, {})
-    hip = next(p for i, p, q in poses if w.TRACKERS[i] == "hip")
-    assert np.linalg.norm(hip - (W2[w.L_HIP] + W2[w.R_HIP]) / 2) < 0.03
-    assert abs(cal.floor - (FLOOR + t[1])) < 1e-6
-
-
-def test_fast_head_turn_is_not_a_recenter():
-    rot0 = np.eye(3)
-    a = w.HmdPose(rot0, np.zeros(3), 1.6, t=0.0)
-    turn = math.radians(45)  # 45° in 50 ms = 900°/s, backed by the reported angular velocity
-    b = w.HmdPose(w.rot_y(turn), np.array([0.05, 0, 0]), 1.6, vel=np.array([1.0, 0, 0]),
-                  ang_vel=np.array([0, turn / 0.05, 0]), t=0.05)
-    a.ang_vel = b.ang_vel.copy()
-    a.vel = b.vel.copy()
-    assert w.space_jump(a, b) is None
-    assert w.space_jump(a, w.HmdPose(rot0, np.zeros(3), 1.6, t=1.0)) is None  # long gap: no guess
 
 
 def test_driver_watch():
@@ -290,14 +264,16 @@ def test_camera_seeing_the_back_is_ignored():
 def test_calibration_set_and_file():
     tmp = os.path.join(os.environ.get("TEMP", "."), "webcamfbt_calib_multi.json")
     w.CALIBRATION_FILE = tmp
-    with open(tmp, "w", encoding="utf-8") as f:  # old single-camera file
+    with open(tmp, "w", encoding="utf-8") as f:  # old single-camera file: no headset recorded
         json.dump({"camera_index": 0, "R": np.eye(3).tolist(), "scale": 1.2, "floor": -0.3}, f)
     cs = w.CalibrationSet([0, 2])
-    assert cs.load() == [0] and cs.ready and cs.ready_count() == 1 and cs.scale == 1.2
-    cs.cals[2].R, cs.cals[2].scale, cs.cals[2].floor, cs.cals[2].ready = w.rot_y(1.0), 0.9, -0.3, True
-    cs.save()
+    assert cs.load("Meta Quest 3") == [] and not cs.ready  # not trusted for a known headset
+    for i in (0, 2):
+        cs.cals[i].R, cs.cals[i].scale, cs.cals[i].floor, cs.cals[i].ready = w.rot_y(i / 2), 0.9, -0.3, True
+    cs.save("Meta Quest 3")
     again = w.CalibrationSet([0, 2])
-    assert again.load() == [0, 2] and np.allclose(again.cals[2].R, w.rot_y(1.0))
+    assert again.load("Meta Quest 3") == [0, 2] and np.allclose(again.cals[2].R, w.rot_y(1.0))
+    assert w.CalibrationSet([0, 2]).load("Meta Quest 2") == []
     os.remove(tmp)
 
 
@@ -306,6 +282,51 @@ def test_extra_camera_config():
     assert cfg["extra_cameras"] == [3, 4] and problems  # main camera and duplicates dropped, max 2
     assert w.validate_config({"extra_cameras": "2"})[0]["extra_cameras"] == []
     assert w.validate_config({})[0]["extra_cameras"] == []
+
+
+def test_camera_recovers_from_a_hanging_read():
+    """After a PC wakes from sleep a DirectShow read() can hang forever; the main loop's
+    check_stall() must notice, start a fresh reader and get frames again."""
+    import threading
+    import time
+
+    class FakeCap:
+        def __init__(self, hang_after):
+            self.n, self.hang_after = 0, hang_after
+            self.block = threading.Event()
+
+        def read(self):
+            self.n += 1
+            if self.hang_after is not None and self.n > self.hang_after:
+                self.block.wait()  # never returns (until the test ends)
+                return False, None
+            time.sleep(0.01)
+            return True, np.zeros((4, 4, 3), np.uint8)
+
+        def release(self):
+            pass
+
+    caps = [FakeCap(hang_after=5), FakeCap(hang_after=None)]
+    original_open, original_stall = w.Camera._open, w.Camera.STALL_AFTER
+    w.Camera._open = lambda self: caps.pop(0) if caps else None
+    w.Camera.STALL_AFTER = 0.3
+    try:
+        cam = w.Camera(0, 4, 4, 30)
+        time.sleep(0.2)
+        stuck_at = cam.latest()[1]
+        assert 1 <= stuck_at <= 5
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and cam.latest()[1] <= stuck_at:
+            cam.check_stall(time.monotonic())
+            time.sleep(0.05)
+        assert cam.latest()[1] > stuck_at, "frames never came back after the stall"
+        events = []
+        while not cam.events.empty():
+            events.append(cam.events.get_nowait())
+        assert events[:2] == ["camera_lost", "camera_back"], events
+        cam.running = False
+    finally:
+        w.Camera._open, w.Camera.STALL_AFTER = original_open, original_stall
 
 
 def test_messages_complete():

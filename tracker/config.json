@@ -22,5 +22,7 @@
   "mirror_preview": true,
   "udp_port": 39570,
   "depth_smoothing": 0.6,
-  "foot_lock": true
+  "foot_lock": true,
+  "auto_start": true,
+  "setup_done": true
 }

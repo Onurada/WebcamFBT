@@ -52,7 +52,7 @@
     <sys:String x:Key="S.General.Title">Genel</sys:String>
     <sys:String x:Key="S.General.Language">Dil</sys:String>
     <sys:String x:Key="S.General.AutoStart">Uygulama açılınca motoru başlat</sys:String>
-    <sys:String x:Key="S.General.RememberCalib">Kalibrasyonu hatırla (kamera yerinde kaldıkça)</sys:String>
+    <sys:String x:Key="S.General.RememberCalib">Kalibrasyonu sonraki açılışa sakla (aynı kask ve kamera yerinde kaldıysa; önerilmez)</sys:String>
     <sys:String x:Key="S.General.ShowPreview">Kamera önizlemesini göster</sys:String>
     <sys:String x:Key="S.General.Hint">Pencere küçültülünce önizleme kendiliğinden durur ve işlemci oyuna kalır.</sys:String>
 
@@ -157,7 +157,6 @@
     <sys:String x:Key="S.Vr.PortBusy">port meşgul</sys:String>
     <sys:String x:Key="S.Vr.DriverOutdated">sürücü eski (SteamVR'ı yeniden aç)</sys:String>
     <sys:String x:Key="S.Overlay.RecenterTitle">Takip alanı değişti</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterFixed">Kalibrasyon otomatik düzeltildi. Kayık görünürse {0}.</sys:String>
     <sys:String x:Key="S.Overlay.RecenterMaybe">Tracker'lar kayık görünürse {0} ile yeniden kalibre et.</sys:String>
     <sys:String x:Key="S.Calib.Check">kontrol et ({0})</sys:String>
     <sys:String x:Key="S.General.OpenLogs">Kayıt klasörünü aç</sys:String>
@@ -256,7 +255,7 @@
     <sys:String x:Key="S.Wizard.PlacementTitle">Kamerayı yerleştir</sys:String>
     <sys:String x:Key="S.Wizard.PlacementText">• Kamerayı oyun alanının önüne, yaklaşık 2–3 m uzağa koy.&#x0a;• Bel hizasında (yerden ~1 m) ve düz baksın.&#x0a;• Baştan ayağa tüm vücudun görünmeli, ayakların da.&#x0a;• Oda iyi aydınlatılmış olsun; karanlıkta kamera yavaşlar.&#x0a;&#x0a;Emin olamazsan motor çalışırken Kamera ve model bölümündeki Kurulum asistanı ile kamerayı nereye koyacağını haritada görebilir ya da yerini puanlatabilirsin.</sys:String>
     <sys:String x:Key="S.Wizard.CalibrationTitle">Kalibrasyon ve oyun</sys:String>
-    <sys:String x:Key="S.Wizard.CalibrationText">1. Motoru başlat, kaskını PC'ye bağla ve SteamVR'ı aç.&#x0a;2. Kask takılıyken kameranın önünde dur ve {0}'e bas. İlk bipten sonra dik dur ve düz ileri bak; ikinci bipte 2 saniye kıpırdama. Tiz bip: tamam.&#x0a;3. Oyundaki FBT kalibrasyonunu yap:&#x0a;   • VRChat: T-pose ver, iki tetiğe bas.&#x0a;   • Vivecraft: Playermodel Settings'te model tipini Split Arms/Legs yap, sonra Calibrate FBT.&#x0a;&#x0a;Kamerayı oynatmadığın sürece kalibrasyon bir sonraki açılışta hatırlanır. Oyunda kaskını yeniden merkezlersen (Quest: Meta butonuna basılı tut, Rift: Oculus butonuna basılı tut) uygulama bunu fark edip kalibrasyonu kendisi düzeltir.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Motoru başlat, kaskını PC'ye bağla ve SteamVR'ı aç.&#x0a;2. Kask takılıyken kameranın önünde dur ve {0}'e bas. İlk bipten sonra dik dur ve düz ileri bak; ikinci bipte 2 saniye kıpırdama. Tiz bip: tamam.&#x0a;3. Oyundaki FBT kalibrasyonunu yap:&#x0a;   • VRChat: T-pose ver, iki tetiğe bas.&#x0a;   • Vivecraft: Playermodel Settings'te model tipini Split Arms/Legs yap, sonra Calibrate FBT.&#x0a;&#x0a;Her oturumda (ve kaskı merkezlersen ya da kamerayı oynatırsan) {0} ile yeniden kalibre et. Kalibre edilene kadar tracker gönderilmez.</sys:String>
     <sys:String x:Key="S.Vr.ConnectedTo">bağlı · {0}</sys:String>
     <sys:String x:Key="S.Vr.Tooltip">{0} · {1}&#x0a;Merkezleme: {2}</sys:String>
     <sys:String x:Key="S.Conn.meta_link">Meta Horizon Link (kablo ya da Air Link)</sys:String>
@@ -279,4 +278,6 @@
     <sys:String x:Key="S.Update.Ask">WebcamFBT {0} yayınlandı. İndirme sayfası açılsın mı? Yeni kurulum dosyasını çalıştırman yeterli; ayarların ve kalibrasyonun korunur.</sys:String>
     <sys:String x:Key="S.Update.UpToDate">WebcamFBT güncel (sürüm {0}).</sys:String>
     <sys:String x:Key="S.Update.Unavailable">Güncelleme bilgisi alınamadı: internet bağlantısı yok ya da sürümler herkese açık değil.</sys:String>
+    <sys:String x:Key="S.Overlay.NeedCalibTitle">Kalibrasyon gerekli</sys:String>
+    <sys:String x:Key="S.Overlay.NeedCalibSub">Kask takılıyken kameranın önünde dik dur ve {0}'e bas.&#x0a;Kalibre edilene kadar tracker gönderilmez.</sys:String>
 </ResourceDictionary>
