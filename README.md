@@ -1,15 +1,23 @@
-# WebcamFBT — Full Body Tracking with a Webcam (Quest 3 + SteamVR)
+# WebcamFBT — Full Body Tracking with a Webcam (Meta Quest / SteamVR)
 
 *Türkçe: [KULLANIM.md](KULLANIM.md)*
 
-Estimates your skeleton from a webcam (MediaPipe Pose), anchors it to the Quest 3 headset pose and sends it to
+Estimates your skeleton from a webcam (MediaPipe Pose), anchors it to your headset's pose and sends it to
 SteamVR as **virtual Vive trackers**. Works in VRChat, Vivecraft and any other SteamVR game.
 
 Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both feet** gives the most solid result.
 
+## Supported headsets
+WebcamFBT only reads the headset's pose from SteamVR, so it works with any headset SteamVR supports:
+- **Meta Quest 1, 2, 3, 3S, Pro:** over Link cable, Air Link, Steam Link, Virtual Desktop or ALVR.
+- **Oculus Rift, Rift S:** through the Meta Horizon Link app.
+- **Other SteamVR headsets:** Valve Index, HTC Vive, Pico, Windows Mixed Reality.
+
+The app recognizes the connected headset and shows its name on the SteamVR chip (e.g. *connected · Meta Quest 3*). Hovering the chip shows the connection and how to recenter on that headset. Tested with a Quest 3 over Steam Link; the others use the same path but have not been tested yet.
+
 ## Getting started
 1. **Place the camera:** about 2–3 m away, at waist or chest height. Your **whole body**, head to toe, must be visible. Use good lighting: in a dark room the camera drops from 30 to 20 frames per second.
-2. Connect the Quest 3 to the PC (Steam Link / Air Link / Link cable) and start **SteamVR**.
+2. Connect your headset to the PC (for a Quest: Link cable / Air Link / Steam Link / Virtual Desktop / ALVR) and start **SteamVR**.
 3. Open `app\WebcamFBT.exe` and press **Start**. The engine starts in about 3 seconds.
 4. **Calibrate:** wearing the headset, stand in front of the camera and press **F8**. The hotkey also works while in a game.
    - After the first beep you have 3 seconds: **stand straight and look ahead**, arms at your sides.
@@ -19,7 +27,7 @@ Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both
    - **VRChat:** T-pose, then pull both triggers.
    - **Vivecraft:** first set the model type to *Split Arms* or *Split Arms/Legs* under *Playermodel Settings*, then run *Calibrate FBT…*.
 
-> The calibration is saved and loaded automatically next time. **If you move the camera or recenter the Quest**, press F8 to redo it.
+> The calibration is saved and loaded automatically next time. **If you move the camera**, press F8 to redo it. If you recenter the headset, the app notices and corrects itself; press F8 if anything looks off.
 > If you enabled new trackers (elbows, knees…), redo the in-game full body calibration too.
 
 ## First launch and the notification area
@@ -39,7 +47,7 @@ One camera is the default. **Extra camera 1 / 2** under *Camera and model* add u
 ## Setup assistant
 Open it with *Camera and model → Setup assistant…* while the engine runs. It has two modes, you pick which one to use:
 
-**Room map with the Quest**
+**Room map with the headset**
 - With SteamVR running and the headset on, it reads your play area. Optionally **Scan the room by walking**: walk once along the walls with the headset on, so no camera is suggested outside your walls.
 - For 1–3 cameras and your webcam's field of view, a top-down map shows where each camera goes and which way it should face.
 - You are the blue dot. Walk to a green numbered spot and put the camera there, facing the middle of the play area, about 1 m off the floor.
@@ -91,7 +99,7 @@ What protects against failures:
 - **Settings validation:** invalid values fall back to defaults or are clamped. A broken `config.json` is kept as `config.json.broken-<date>` and the app starts with defaults.
 - **Clear error messages:** if the camera can't be opened, is used by another program, the driver isn't installed or its UDP port is taken, you get a message saying what to do, plus two low beeps.
 - **Driver version check:** warns when SteamVR still runs an older WebcamFBT driver.
-- **Quest recenter:** when the tracking space changes (holding the Meta button to recenter), the calibration is corrected automatically and you get a warning. Press F8 if anything looks off.
+- **Headset recenter:** when the tracking space changes (e.g. holding the Meta button on a Quest), the calibration is corrected automatically and you get a warning. Press F8 if anything looks off.
 
 ## Limits (single camera)
 Adding a second camera (see above) largely reduces the first two.

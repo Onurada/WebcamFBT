@@ -169,9 +169,9 @@
     <!-- Multi-camera and setup assistant -->
     <sys:String x:Key="S.Assistant.Title">Setup assistant</sys:String>
     <sys:String x:Key="S.Assistant.NeedsEngine">The assistant needs the engine running: press Start in the main window.</sys:String>
-    <sys:String x:Key="S.Assistant.RoomTab">Room map with the Quest</sys:String>
+    <sys:String x:Key="S.Assistant.RoomTab">Room map with the headset</sys:String>
     <sys:String x:Key="S.Assistant.SpotTab">Spot score with the webcam</sys:String>
-    <sys:String x:Key="S.Assistant.RoomIntro">Wear the headset with SteamVR running. The app reads your play area and shows on the map where each camera goes and which way it should face. You are the blue dot: walk to a green numbered spot and put the camera there, facing the middle of the play area, about 1 m off the floor.</sys:String>
+    <sys:String x:Key="S.Assistant.RoomIntro">Wear the headset with SteamVR running (a Meta Quest, a Rift or any headset that works with SteamVR). The app reads your play area and shows on the map where each camera goes and which way it should face. You are the blue dot: walk to a green numbered spot and put the camera there, facing the middle of the play area, about 1 m off the floor.</sys:String>
     <sys:String x:Key="S.Assistant.CameraCount">Number of cameras</sys:String>
     <sys:String x:Key="S.Assistant.Fov">Camera's horizontal field of view</sys:String>
     <sys:String x:Key="S.Assistant.FovHint">Most webcams are 55–78° (see the box or the product page). Leave it at 60° if unsure.</sys:String>
@@ -182,7 +182,7 @@
     <sys:String x:Key="S.Assistant.ShowActual">Show where the calibrated cameras roughly are</sys:String>
     <sys:String x:Key="S.Assistant.Legend">Green: every camera sees you head to toe. Yellow: some do. Red: none. Orange K dots are the estimated spots of calibrated cameras (depends on the field of view setting).</sys:String>
     <sys:String x:Key="S.Assistant.Waiting">Waiting for data from the engine…</sys:String>
-    <sys:String x:Key="S.Assistant.NoVr">SteamVR is not connected or the headset is not tracked. Connect the Quest, start SteamVR and wear the headset. The map shows a default 2×2 m area for now.</sys:String>
+    <sys:String x:Key="S.Assistant.NoVr">SteamVR is not connected or the headset is not tracked. Connect your headset to the PC, start SteamVR and wear it. The map shows a default 2×2 m area for now.</sys:String>
     <sys:String x:Key="S.Assistant.Walking">Scanning: {0} points recorded. Keep walking along the walls.</sys:String>
     <sys:String x:Key="S.Assistant.SourceBoth">Play area from SteamVR, walls from your scan.</sys:String>
     <sys:String x:Key="S.Assistant.SourceWalk">Room from your scan.</sys:String>
@@ -246,7 +246,7 @@
     <sys:String x:Key="S.Wizard.Skip">Skip</sys:String>
     <sys:String x:Key="S.Wizard.StartNow">Start the engine when done</sys:String>
     <sys:String x:Key="S.Wizard.WelcomeTitle">Welcome</sys:String>
-    <sys:String x:Key="S.Wizard.WelcomeText">WebcamFBT tracks your body from your webcam and sends it to SteamVR as virtual trackers, so you get full body tracking in VRChat, Vivecraft and other SteamVR games without buying trackers. This wizard gets everything ready in a few steps. You can open it again any time from the General section.</sys:String>
+    <sys:String x:Key="S.Wizard.WelcomeText">WebcamFBT tracks your body from your webcam and sends it to SteamVR as virtual trackers, so you get full body tracking in VRChat, Vivecraft and other SteamVR games without buying trackers.&#x0a;&#x0a;Supported headsets: Meta Quest 1, 2, 3, 3S and Pro (Link cable, Air Link, Steam Link, Virtual Desktop or ALVR), Oculus Rift and Rift S, and other headsets that work with SteamVR (Valve Index, HTC Vive, Pico, Windows Mixed Reality).&#x0a;&#x0a;This wizard gets everything ready in a few steps. You can open it again any time from the General section.</sys:String>
     <sys:String x:Key="S.Wizard.DriverTitle">SteamVR driver</sys:String>
     <sys:String x:Key="S.Wizard.DriverText">For the trackers to show up in SteamVR, the WebcamFBT driver must be installed. If it is not, close SteamVR and press the button below.</sys:String>
     <sys:String x:Key="S.Wizard.CameraTitle">Camera</sys:String>
@@ -256,5 +256,19 @@
     <sys:String x:Key="S.Wizard.PlacementTitle">Place the camera</sys:String>
     <sys:String x:Key="S.Wizard.PlacementText">• Put the camera in front of the play area, about 2–3 m away.&#x0a;• At waist height (~1 m off the floor), looking straight ahead.&#x0a;• Your whole body must be visible head to toe, feet included.&#x0a;• Keep the room well lit; in the dark the camera slows down.&#x0a;&#x0a;If unsure, once the engine runs, the Setup assistant under Camera and model shows on a map where to put the camera, or scores the spot you picked.</sys:String>
     <sys:String x:Key="S.Wizard.CalibrationTitle">Calibration and games</sys:String>
-    <sys:String x:Key="S.Wizard.CalibrationText">1. Start the engine, connect the Quest and start SteamVR.&#x0a;2. Wearing the headset, stand in front of the camera and press {0}. After the first beep stand straight and look ahead; at the second beep hold still for 2 seconds. High beep: done.&#x0a;3. Run your game's full body calibration:&#x0a;   • VRChat: T-pose, then pull both triggers.&#x0a;   • Vivecraft: set the model type to Split Arms/Legs in Playermodel Settings, then Calibrate FBT.&#x0a;&#x0a;As long as the camera does not move, the calibration is remembered next time.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Start the engine, connect your headset to the PC and start SteamVR.&#x0a;2. Wearing the headset, stand in front of the camera and press {0}. After the first beep stand straight and look ahead; at the second beep hold still for 2 seconds. High beep: done.&#x0a;3. Run your game's full body calibration:&#x0a;   • VRChat: T-pose, then pull both triggers.&#x0a;   • Vivecraft: set the model type to Split Arms/Legs in Playermodel Settings, then Calibrate FBT.&#x0a;&#x0a;As long as the camera does not move, the calibration is remembered next time. If you recenter the headset in game (Quest: hold the Meta button, Rift: hold the Oculus button), the app notices and corrects the calibration itself.</sys:String>
+    <sys:String x:Key="S.Vr.ConnectedTo">connected · {0}</sys:String>
+    <sys:String x:Key="S.Vr.Tooltip">{0} · {1}&#x0a;Recenter: {2}</sys:String>
+    <sys:String x:Key="S.Conn.meta_link">Meta Horizon Link (cable or Air Link)</sys:String>
+    <sys:String x:Key="S.Conn.steam_link">Steam Link</sys:String>
+    <sys:String x:Key="S.Conn.virtual_desktop">Virtual Desktop</sys:String>
+    <sys:String x:Key="S.Conn.alvr">ALVR</sys:String>
+    <sys:String x:Key="S.Conn.lighthouse">SteamVR Lighthouse</sys:String>
+    <sys:String x:Key="S.Conn.wmr">Windows Mixed Reality</sys:String>
+    <sys:String x:Key="S.Conn.pico_connect">Pico Connect</sys:String>
+    <sys:String x:Key="S.Conn.other">SteamVR</sys:String>
+    <sys:String x:Key="S.Recenter.quest">hold the Meta button (Oculus on older controllers) on the right controller</sys:String>
+    <sys:String x:Key="S.Recenter.rift">hold the Oculus button on the right controller</sys:String>
+    <sys:String x:Key="S.Recenter.vd">from the Virtual Desktop menu or by holding the Meta button</sys:String>
+    <sys:String x:Key="S.Recenter.generic">use your headset's or the SteamVR menu's recenter command</sys:String>
 </ResourceDictionary>

@@ -573,7 +573,17 @@ public partial class MainWindow : Window
                 break;
             case "connected":
                 var hmd = s.GetProperty("hmd").GetBoolean();
-                SetChip(VrDot, VrValue, Loc.T(hmd ? "Vr.Connected" : "Vr.NoHmd"), hmd ? Good : Warn);
+                var hs = s.TryGetProperty("headset", out var hsEl) && hsEl.ValueKind == JsonValueKind.Object ? hsEl : (JsonElement?)null;
+                var name = hs?.GetProperty("name").GetString();
+                SetChip(VrDot, VrValue, !hmd ? Loc.T("Vr.NoHmd") : name != null ? Loc.T("Vr.ConnectedTo", name) : Loc.T("Vr.Connected"),
+                    hmd ? Good : Warn);
+                if (hs is JsonElement h)
+                {
+                    var family = h.GetProperty("family").GetString();
+                    var connection = h.GetProperty("connection").GetString();
+                    var how = connection == "virtual_desktop" ? "Recenter.vd" : family is "quest" or "rift" ? $"Recenter.{family}" : "Recenter.generic";
+                    VrValue.ToolTip = Loc.T("Vr.Tooltip", name ?? "", Loc.T($"Conn.{connection}"), Loc.T(how));
+                }
                 break;
             case "waiting":
                 SetChip(VrDot, VrValue, Loc.T("Vr.Waiting"), Warn);

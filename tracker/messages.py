@@ -12,7 +12,15 @@ MESSAGES = {
         "tr": 'Ek kamera {i} açılamadı ({err}); onsuz devam ediliyor.',
         "en": 'Extra camera {i} could not be opened ({err}); continuing without it.',
     },
-    "vr_connected": {"tr": "SteamVR'a bağlanıldı", "en": "Connected to SteamVR"},
+    "vr_connected": {"tr": "SteamVR'a bağlanıldı: {name} ({conn})", "en": "Connected to SteamVR: {name} ({conn})"},
+    "conn_meta_link": {"tr": "Meta Horizon Link: kablo ya da Air Link", "en": "Meta Horizon Link: cable or Air Link"},
+    "conn_steam_link": {"tr": "Steam Link", "en": "Steam Link"},
+    "conn_virtual_desktop": {"tr": "Virtual Desktop", "en": "Virtual Desktop"},
+    "conn_alvr": {"tr": "ALVR", "en": "ALVR"},
+    "conn_lighthouse": {"tr": "SteamVR Lighthouse", "en": "SteamVR Lighthouse"},
+    "conn_wmr": {"tr": "Windows Mixed Reality", "en": "Windows Mixed Reality"},
+    "conn_pico_connect": {"tr": "Pico Connect", "en": "Pico Connect"},
+    "conn_other": {"tr": "SteamVR", "en": "SteamVR"},
     "vr_closed": {"tr": "SteamVR kapandı", "en": "SteamVR closed"},
     "vr_error": {"tr": "SteamVR hatası: {err}", "en": "SteamVR error: {err}"},
     "calib_failed": {
@@ -24,8 +32,8 @@ MESSAGES = {
         "en": 'Camera {i}: calibration done (yaw {yaw:.1f}°, scale {scale:.2f}, floor {floor:.2f} m, {n} samples)',
     },
     "calib_loaded": {
-        "tr": "Kayıtlı kalibrasyon yüklendi (kamera {cams}). Kamerayı oynattıysan ya da Quest'te merkezleme yaptıysan {cal} ile yenile.",
-        "en": 'Saved calibration loaded (camera {cams}). Press {cal} to redo it if a camera moved or you recentered the Quest.',
+        "tr": "Kayıtlı kalibrasyon yüklendi (kamera {cams}). Kamerayı oynattıysan ya da kaskta merkezleme yaptıysan {cal} ile yenile.",
+        "en": 'Saved calibration loaded (camera {cams}). Press {cal} to redo it if a camera moved or you recentered the headset.',
     },
     "camera_ok": {"tr": "Kamera {i}: çalışıyor {w}x{h}", "en": "Camera {i}: working {w}x{h}"},
     "camera_no_image": {"tr": "Kamera {i}: açıldı ama görüntü yok", "en": "Camera {i}: opened but no image"},
@@ -80,8 +88,8 @@ MESSAGES = {
     },
     "driver_ok": {"tr": "SteamVR sürücüsü yeniden veri alıyor.", "en": "The SteamVR driver is receiving data again."},
     "recenter_fixed": {
-        "tr": "Takip alanı değişti (Quest'te merkezleme). Kalibrasyon otomatik düzeltildi; kayık görünürse {cal}.",
-        "en": "The tracking space changed (Quest recenter). Calibration was corrected automatically; press {cal} if anything looks off.",
+        "tr": "Takip alanı değişti (kaskta merkezleme). Kalibrasyon otomatik düzeltildi; kayık görünürse {cal}.",
+        "en": "The tracking space changed (headset recenter). Calibration was corrected automatically; press {cal} if anything looks off.",
     },
     "recenter_maybe": {
         "tr": "SteamVR takip alanının değiştiğini bildirdi. Tracker'lar kayık görünürse {cal} ile yeniden kalibre et.",

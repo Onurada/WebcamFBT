@@ -1,15 +1,23 @@
-# WebcamFBT — Webcam ile Full Body Tracking (Quest 3 + SteamVR)
+# WebcamFBT — Webcam ile Full Body Tracking (Meta Quest / SteamVR)
 
 *English: [README.md](README.md)*
 
-Webcam görüntüsünden vücut iskeleti çıkarır (MediaPipe Pose), Quest 3'ün kafa konumuna sabitler ve
+Webcam görüntüsünden vücut iskeleti çıkarır (MediaPipe Pose), kaskının konumuna sabitler ve
 SteamVR'a **sanal Vive tracker** olarak gönderir. VRChat, Vivecraft ve diğer tüm SteamVR oyunlarında çalışır.
 
 Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En sağlam sonucu **kalça + iki ayak** verir.
 
+## Desteklenen kasklar
+WebcamFBT sadece kaskın SteamVR'daki konumunu okur, bu yüzden SteamVR ile çalışan her kaskla çalışır:
+- **Meta Quest 1, 2, 3, 3S, Pro:** Link kablosu, Air Link, Steam Link, Virtual Desktop ya da ALVR ile.
+- **Oculus Rift, Rift S:** Meta Horizon Link uygulamasıyla.
+- **Diğer SteamVR kaskları:** Valve Index, HTC Vive, Pico, Windows Mixed Reality.
+
+Uygulama bağlı kaskı tanır ve SteamVR göstergesinde adını gösterir (ör. *bağlı · Meta Quest 3*). Göstergenin üstüne gelince bağlantı yolu ve o kaskta merkezlemenin nasıl yapıldığı görünür. Quest 3 ve Steam Link ile denendi; diğer kasklar aynı yoldan çalışır ama henüz denenmedi.
+
 ## Başlarken
 1. **Kamerayı yerleştir:** Yaklaşık 2–3 m uzağa, bel ya da göğüs hizasına koy. Baştan ayağa **tüm vücudun** görünmeli. Ortam iyi aydınlatılmış olmalı; karanlıkta kamera saniyede 30 yerine 20 kare verir.
-2. Quest 3'ü PC'ye bağla (Steam Link / Air Link / Link kablosu) ve **SteamVR**'ı aç.
+2. Kaskını PC'ye bağla (Quest için Link kablosu / Air Link / Steam Link / Virtual Desktop / ALVR) ve **SteamVR**'ı aç.
 3. `app\WebcamFBT.exe`'yi aç ve **Başlat**'a bas. Motor yaklaşık 3 saniyede açılır.
 4. **Kalibrasyon:** Kask takılıyken kameranın önünde dur ve **F8**'e bas. Bu kısayol oyundayken de çalışır.
    - İlk bipten sonra 3 saniye içinde **dik dur, düz ileri bak**, kollar yanda.
@@ -19,7 +27,7 @@ Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En
    - **VRChat:** T-pose ver, iki tetiğe bas.
    - **Vivecraft:** Önce *Playermodel Settings* altında model tipini *Split Arms* ya da *Split Arms/Legs* yap, sonra *Calibrate FBT…* çalıştır.
 
-> Kalibrasyon kaydedilir ve bir sonraki açılışta kendiliğinden yüklenir. **Kamerayı oynatırsan ya da Quest'te merkezleme yaparsan** F8 ile yenile.
+> Kalibrasyon kaydedilir ve bir sonraki açılışta kendiliğinden yüklenir. **Kamerayı oynatırsan** F8 ile yenile. Kaskta merkezleme yaparsan uygulama bunu fark edip kendisi düzeltir; kayık görünürse yine F8.
 > Yeni tracker'ları (dirsek, diz…) açtıysan oyundaki FBT kalibrasyonunu da yenile.
 
 ## İlk açılış ve bildirim alanı
@@ -39,7 +47,7 @@ Varsayılan tek kameradır. *Kamera ve model* bölümündeki **Ek kamera 1 / 2**
 ## Kurulum asistanı
 *Kamera ve model → Kurulum asistanı…* ile açılır, motor çalışırken kullanılır. İki modu var, hangisini kullanacağını sen seçersin:
 
-**Quest ile oda haritası**
+**Kask ile oda haritası**
 - SteamVR açık ve kask takılıyken oyun alanını okur. İstersen **Odayı gezerek tara** ile kaskla odanın duvarları boyunca bir tur atarsın, kameralar duvarın dışına önerilmez.
 - Kamera sayısına (1–3) ve webcam'in görüş açısına göre kameraların nereye, hangi yöne bakacak şekilde konacağını kuşbakışı haritada gösterir.
 - Haritada sen mavi noktasın. Yeşil numaralı noktaya yürü ve kamerayı oraya, oyun alanının ortasına bakacak şekilde, yerden yaklaşık 1 m yükseğe koy.
@@ -91,7 +99,7 @@ Hatalara karşı önlemler:
 - **Ayar doğrulama:** Geçersiz değerler varsayılana döner ya da sınırlara çekilir. Bozuk `config.json` dosyası `config.json.broken-<tarih>` olarak saklanır, uygulama varsayılanlarla açılır.
 - **Anlaşılır hata mesajları:** Kamera açılmıyorsa, kamera başka bir programda açıksa, sürücü yüklü değilse ya da UDP portu meşgulse ne yapman gerektiği yazar ve iki kalın bip sesi duyulur.
 - **Sürücü sürüm kontrolü:** SteamVR eski bir WebcamFBT sürücüsü çalıştırıyorsa uyarır.
-- **Quest merkezleme:** Takip alanı değişirse (Meta butonuna basılı tutup merkezleme) kalibrasyon otomatik düzeltilir ve uyarı verilir. Kayık görünürse F8.
+- **Kaskta merkezleme:** Takip alanı değişirse (ör. Quest'te Meta butonuna basılı tutup merkezleme) kalibrasyon otomatik düzeltilir ve uyarı verilir. Kayık görünürse F8.
 
 ## Sınırlar (tek kamera)
 İkinci bir kamera eklemek (yukarıya bak) ilk iki maddeyi büyük ölçüde azaltır.

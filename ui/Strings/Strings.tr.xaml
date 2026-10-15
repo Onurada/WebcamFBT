@@ -169,9 +169,9 @@
     <!-- Multi-camera and setup assistant -->
     <sys:String x:Key="S.Assistant.Title">Kurulum asistanı</sys:String>
     <sys:String x:Key="S.Assistant.NeedsEngine">Asistan için motorun çalışması gerekiyor: ana penceredeki Başlat'a bas.</sys:String>
-    <sys:String x:Key="S.Assistant.RoomTab">Quest ile oda haritası</sys:String>
+    <sys:String x:Key="S.Assistant.RoomTab">Kask ile oda haritası</sys:String>
     <sys:String x:Key="S.Assistant.SpotTab">Webcam ile yer puanı</sys:String>
-    <sys:String x:Key="S.Assistant.RoomIntro">Kask takılı ve SteamVR açık olmalı. Uygulama oyun alanını okur, kameraların nereye ve hangi yöne bakacak şekilde konacağını haritada gösterir. Sen haritada mavi noktasın: yeşil numaralı noktaya yürü ve kamerayı oraya, oyun alanının ortasına bakacak şekilde, yerden yaklaşık 1 m yükseğe koy.</sys:String>
+    <sys:String x:Key="S.Assistant.RoomIntro">Kask takılı ve SteamVR açık olmalı (Meta Quest, Rift ya da SteamVR ile çalışan herhangi bir kask). Uygulama oyun alanını okur, kameraların nereye ve hangi yöne bakacak şekilde konacağını haritada gösterir. Sen haritada mavi noktasın: yeşil numaralı noktaya yürü ve kamerayı oraya, oyun alanının ortasına bakacak şekilde, yerden yaklaşık 1 m yükseğe koy.</sys:String>
     <sys:String x:Key="S.Assistant.CameraCount">Kamera sayısı</sys:String>
     <sys:String x:Key="S.Assistant.Fov">Kameranın yatay görüş açısı</sys:String>
     <sys:String x:Key="S.Assistant.FovHint">Çoğu webcam 55–78° arasıdır (kutusunda ya da ürün sayfasında yazar). Emin değilsen 60° bırak.</sys:String>
@@ -182,7 +182,7 @@
     <sys:String x:Key="S.Assistant.ShowActual">Kalibre edilmiş kameraların tahmini yerini göster</sys:String>
     <sys:String x:Key="S.Assistant.Legend">Yeşil: tüm kameralar seni baştan ayağa görür. Sarı: bazıları görür. Kırmızı: hiçbiri. Turuncu K noktaları kalibre edilmiş kameraların tahmini yeridir (görüş açısı ayarına bağlıdır).</sys:String>
     <sys:String x:Key="S.Assistant.Waiting">Motordan veri bekleniyor…</sys:String>
-    <sys:String x:Key="S.Assistant.NoVr">SteamVR bağlı değil ya da kask görünmüyor. Quest'i bağla, SteamVR'ı aç ve kaskı tak. Harita şimdilik varsayılan 2×2 m alanı gösteriyor.</sys:String>
+    <sys:String x:Key="S.Assistant.NoVr">SteamVR bağlı değil ya da kask görünmüyor. Kaskını PC'ye bağla, SteamVR'ı aç ve kaskı tak. Harita şimdilik varsayılan 2×2 m alanı gösteriyor.</sys:String>
     <sys:String x:Key="S.Assistant.Walking">Tarama sürüyor: {0} nokta kaydedildi. Duvar boyunca dolaşmaya devam et.</sys:String>
     <sys:String x:Key="S.Assistant.SourceBoth">Oyun alanı SteamVR'dan, duvarlar taramadan alındı.</sys:String>
     <sys:String x:Key="S.Assistant.SourceWalk">Oda taramadan alındı.</sys:String>
@@ -246,7 +246,7 @@
     <sys:String x:Key="S.Wizard.Skip">Atla</sys:String>
     <sys:String x:Key="S.Wizard.StartNow">Bitirince motoru başlat</sys:String>
     <sys:String x:Key="S.Wizard.WelcomeTitle">Hoş geldin</sys:String>
-    <sys:String x:Key="S.Wizard.WelcomeText">WebcamFBT webcam görüntünden vücudunu takip eder ve SteamVR'a sanal tracker olarak gönderir; VRChat, Vivecraft ve diğer SteamVR oyunlarında full body tracking için ayrı tracker satın alman gerekmez. Bu sihirbaz birkaç adımda her şeyi hazırlar. İstediğin zaman Genel bölümünden tekrar açabilirsin.</sys:String>
+    <sys:String x:Key="S.Wizard.WelcomeText">WebcamFBT webcam görüntünden vücudunu takip eder ve SteamVR'a sanal tracker olarak gönderir; VRChat, Vivecraft ve diğer SteamVR oyunlarında full body tracking için ayrı tracker satın alman gerekmez.&#x0a;&#x0a;Desteklenen kasklar: Meta Quest 1, 2, 3, 3S ve Pro (Link kablosu, Air Link, Steam Link, Virtual Desktop ya da ALVR ile), Oculus Rift ve Rift S, ayrıca SteamVR ile çalışan diğer kasklar (Valve Index, HTC Vive, Pico, Windows Mixed Reality).&#x0a;&#x0a;Bu sihirbaz birkaç adımda her şeyi hazırlar. İstediğin zaman Genel bölümünden tekrar açabilirsin.</sys:String>
     <sys:String x:Key="S.Wizard.DriverTitle">SteamVR sürücüsü</sys:String>
     <sys:String x:Key="S.Wizard.DriverText">Tracker'ların SteamVR'da görünmesi için WebcamFBT sürücüsünün kurulu olması gerekir. Kurulu değilse SteamVR'ı kapatıp aşağıdaki butona bas.</sys:String>
     <sys:String x:Key="S.Wizard.CameraTitle">Kamera</sys:String>
@@ -256,5 +256,19 @@
     <sys:String x:Key="S.Wizard.PlacementTitle">Kamerayı yerleştir</sys:String>
     <sys:String x:Key="S.Wizard.PlacementText">• Kamerayı oyun alanının önüne, yaklaşık 2–3 m uzağa koy.&#x0a;• Bel hizasında (yerden ~1 m) ve düz baksın.&#x0a;• Baştan ayağa tüm vücudun görünmeli, ayakların da.&#x0a;• Oda iyi aydınlatılmış olsun; karanlıkta kamera yavaşlar.&#x0a;&#x0a;Emin olamazsan motor çalışırken Kamera ve model bölümündeki Kurulum asistanı ile kamerayı nereye koyacağını haritada görebilir ya da yerini puanlatabilirsin.</sys:String>
     <sys:String x:Key="S.Wizard.CalibrationTitle">Kalibrasyon ve oyun</sys:String>
-    <sys:String x:Key="S.Wizard.CalibrationText">1. Motoru başlat, Quest'i bağla ve SteamVR'ı aç.&#x0a;2. Kask takılıyken kameranın önünde dur ve {0}'e bas. İlk bipten sonra dik dur ve düz ileri bak; ikinci bipte 2 saniye kıpırdama. Tiz bip: tamam.&#x0a;3. Oyundaki FBT kalibrasyonunu yap:&#x0a;   • VRChat: T-pose ver, iki tetiğe bas.&#x0a;   • Vivecraft: Playermodel Settings'te model tipini Split Arms/Legs yap, sonra Calibrate FBT.&#x0a;&#x0a;Kamerayı oynatmadığın sürece kalibrasyon bir sonraki açılışta hatırlanır.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Motoru başlat, kaskını PC'ye bağla ve SteamVR'ı aç.&#x0a;2. Kask takılıyken kameranın önünde dur ve {0}'e bas. İlk bipten sonra dik dur ve düz ileri bak; ikinci bipte 2 saniye kıpırdama. Tiz bip: tamam.&#x0a;3. Oyundaki FBT kalibrasyonunu yap:&#x0a;   • VRChat: T-pose ver, iki tetiğe bas.&#x0a;   • Vivecraft: Playermodel Settings'te model tipini Split Arms/Legs yap, sonra Calibrate FBT.&#x0a;&#x0a;Kamerayı oynatmadığın sürece kalibrasyon bir sonraki açılışta hatırlanır. Oyunda kaskını yeniden merkezlersen (Quest: Meta butonuna basılı tut, Rift: Oculus butonuna basılı tut) uygulama bunu fark edip kalibrasyonu kendisi düzeltir.</sys:String>
+    <sys:String x:Key="S.Vr.ConnectedTo">bağlı · {0}</sys:String>
+    <sys:String x:Key="S.Vr.Tooltip">{0} · {1}&#x0a;Merkezleme: {2}</sys:String>
+    <sys:String x:Key="S.Conn.meta_link">Meta Horizon Link (kablo ya da Air Link)</sys:String>
+    <sys:String x:Key="S.Conn.steam_link">Steam Link</sys:String>
+    <sys:String x:Key="S.Conn.virtual_desktop">Virtual Desktop</sys:String>
+    <sys:String x:Key="S.Conn.alvr">ALVR</sys:String>
+    <sys:String x:Key="S.Conn.lighthouse">SteamVR Lighthouse</sys:String>
+    <sys:String x:Key="S.Conn.wmr">Windows Mixed Reality</sys:String>
+    <sys:String x:Key="S.Conn.pico_connect">Pico Connect</sys:String>
+    <sys:String x:Key="S.Conn.other">SteamVR</sys:String>
+    <sys:String x:Key="S.Recenter.quest">sağ kumandadaki Meta butonuna (eski kumandalarda Oculus) basılı tut</sys:String>
+    <sys:String x:Key="S.Recenter.rift">sağ kumandadaki Oculus butonuna basılı tut</sys:String>
+    <sys:String x:Key="S.Recenter.vd">Virtual Desktop menüsünden ya da Meta butonuna basılı tutarak</sys:String>
+    <sys:String x:Key="S.Recenter.generic">kaskının ya da SteamVR menüsünün yeniden merkezleme komutunu kullan</sys:String>
 </ResourceDictionary>

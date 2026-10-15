@@ -44,6 +44,7 @@ def load_mediapipe():
         mp, mp_tasks, vision = mediapipe, tasks, vis
 
 import cameras
+import headset
 import messages
 import placement
 from messages import T, ascii_fold
@@ -456,7 +457,7 @@ def rotation_angle(R):
 
 
 def space_jump(prev, cur, max_gap=0.25, pos_tol=0.25, ang_tol=math.radians(30)):
-    """If the headset's tracking space was reset (Quest recenter) between two poses, returns the
+    """If the headset's tracking space was reset (e.g. a recenter) between two poses, returns the
     transform (yaw rotation, translation) from the old space to the new one, else None.
     A real head movement is backed by the reported velocities; a space reset is not."""
     dt = cur.t - prev.t
@@ -494,6 +495,7 @@ class VRLink:
         self.std_arr = (openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount)()
         self.prev = None
         self.jump = None  # set by poll() when the tracking space jumped; read and cleared by the caller
+        self.headset = None  # {"name", "family", "connection"} once connected
         self.space_event = False  # SteamVR announced a recenter / chaperone change
 
     def play_area(self):
@@ -546,6 +548,18 @@ class VRLink:
             pass
         self.sys = None
         self.prev = None
+        self.headset = None
+
+    def _identify_headset(self):
+        """Model and PC connection of the HMD (any SteamVR headset works; this only names it)."""
+        def prop(p):
+            try:
+                return self.sys.getStringTrackedDeviceProperty(openvr.k_unTrackedDeviceIndex_Hmd, p)
+            except Exception:
+                return ""
+        return headset.identify(prop(openvr.Prop_ModelNumber_String), prop(openvr.Prop_ManufacturerName_String),
+                                prop(openvr.Prop_TrackingSystemName_String), prop(openvr.Prop_ResourceRoot_String),
+                                prop(openvr.Prop_SerialNumber_String))
 
     def poll(self):
         if not self.enabled:
@@ -556,7 +570,8 @@ class VRLink:
             self.next_try = time.time() + 3
             try:
                 self.sys = openvr.init(openvr.VRApplication_Background)
-                log(T("vr_connected"))
+                self.headset = self._identify_headset()
+                log(T("vr_connected", name=self.headset["name"], conn=T("conn_" + self.headset["connection"])))
             except Exception:
                 return None
         try:
@@ -1467,6 +1482,7 @@ def emit_status(ipc, args, vr, st, driver, *, person, hmd, sent, now):
              scale=round(cal.scale, 3), sent=sent, paused=st.paused,
              infer_ms=round(float(np.mean([w.infer_ms for w in workers])), 1),
              camera_ok=not main_cam.cam.lost, camera_state=main_cam.cam.state, driver=driver.state,
+             headset=vr.headset,
              calibrated_count=cal.ready_count(),
              cameras=[{"index": w.index, "fps": round(w.live_fps, 1), "state": w.cam.state,
                        "infer_ms": round(w.infer_ms, 1), "calibrated": cal.cals[w.index].ready,
@@ -1596,7 +1612,7 @@ def run(args, cfg, ipc):
             hmd = vr.poll()
             st.assistant.record(hmd)
 
-            # Quest recenter / tracking space reset: move every calibration along with the space.
+            # Headset recenter / tracking space reset: move every calibration along with the space.
             if vr.jump is not None:
                 jump, vr.jump = vr.jump, None
                 recenter_warn_at = None
