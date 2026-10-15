@@ -25,3 +25,5 @@ x64/
 tracker/calibration.json
 logs/
 tracker/config.json.broken-*
+tests/*.exe
+tests/*.obj

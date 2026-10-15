@@ -29,7 +29,7 @@
     <sys:String x:Key="S.Calib.Running">in progress…</sys:String>
     <sys:String x:Key="S.Calib.Ready">ready</sys:String>
     <sys:String x:Key="S.Calib.ReadySaved">ready (saved)</sys:String>
-    <sys:String x:Key="S.Calib.None">none (F8)</sys:String>
+    <sys:String x:Key="S.Calib.None">none ({0})</sys:String>
     <sys:String x:Key="S.Sent.Paused">paused</sys:String>
     <sys:String x:Key="S.Sent.Count">{0} sending</sys:String>
     <sys:String x:Key="S.Sent.None">not sending</sys:String>
@@ -60,8 +60,8 @@
     <sys:String x:Key="S.Control.Title">Control</sys:String>
     <sys:String x:Key="S.Control.Start">▶  Start</sys:String>
     <sys:String x:Key="S.Control.Stop">■  Stop</sys:String>
-    <sys:String x:Key="S.Control.Calibrate">Calibrate (F8)</sys:String>
-    <sys:String x:Key="S.Control.Pause">Pause (F9)</sys:String>
+    <sys:String x:Key="S.Control.Calibrate">Calibrate ({0})</sys:String>
+    <sys:String x:Key="S.Control.Pause">Pause ({0})</sys:String>
     <sys:String x:Key="S.Control.NoVr">Test without SteamVR (preview only)</sys:String>
     <sys:String x:Key="S.Control.Hint">Calibration: wear the headset, stand straight in front of the camera and look ahead. After the first beep wait 3 s, at the second beep hold still for 2 s.</sys:String>
 
@@ -127,7 +127,7 @@
     <sys:String x:Key="S.Driver.UninstallDone">Driver removed.</sys:String>
     <sys:String x:Key="S.Driver.Failed">Driver operation failed: {0}</sys:String>
 
-    <sys:String x:Key="S.Footer">F8 = calibrate, F9 = pause. These hotkeys also work while you are in a game.</sys:String>
+    <sys:String x:Key="S.Footer">{0} = calibrate, {1} = pause. These hotkeys also work while you are in a game (the game does not get those keys).</sys:String>
 
     <!-- Log -->
     <sys:String x:Key="S.Log.Folder">Folder: {0}</sys:String>
@@ -155,9 +155,14 @@
     <sys:String x:Key="S.Camera.NoFrames">no image</sys:String>
     <sys:String x:Key="S.Vr.DriverMissing">driver gets no data</sys:String>
     <sys:String x:Key="S.Vr.PortBusy">port in use</sys:String>
+    <sys:String x:Key="S.Vr.DriverOutdated">old driver (restart SteamVR)</sys:String>
     <sys:String x:Key="S.Overlay.RecenterTitle">Tracking space changed</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterFixed">Calibration was corrected automatically. Press F8 if anything looks off.</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterMaybe">If the trackers look off, recalibrate with F8.</sys:String>
-    <sys:String x:Key="S.Calib.Check">check (F8)</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterFixed">Calibration was corrected automatically. Press {0} if anything looks off.</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterMaybe">If the trackers look off, recalibrate with {0}.</sys:String>
+    <sys:String x:Key="S.Calib.Check">check ({0})</sys:String>
     <sys:String x:Key="S.General.OpenLogs">Open log folder</sys:String>
+    <sys:String x:Key="S.General.HotkeyCalibrate">Calibrate hotkey</sys:String>
+    <sys:String x:Key="S.General.HotkeyPause">Pause hotkey</sys:String>
+    <sys:String x:Key="S.Log.HotkeysChanged">Hotkeys changed</sys:String>
+    <sys:String x:Key="S.Log.HotkeyDuplicate">Two actions cannot share the same key.</sys:String>
 </ResourceDictionary>

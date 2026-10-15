@@ -40,6 +40,8 @@ Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En
 | **F8** (her yerde) | Kalibrasyon |
 | **F9** (her yerde) | Tracker gönderimini duraklat / devam ettir |
 
+Tuşlar *Genel* bölümünden değiştirilebilir (F1–F12, Ctrl ile de). Windows'un `RegisterHotKey` mekanizması kullanıldığı için seçilen tuş WebcamFBT açıkken oyuna gitmez.
+
 ## Performans ve kararlılık
 Bu bilgisayarda (Ryzen 5 2600) ölçülen değerler:
 - Model süresi: lite 22 ms, full 37 ms, heavy 133 ms. Önizleme ve diğer adımlar toplam 2 ms'nin altında.
@@ -59,6 +61,7 @@ Hatalara karşı önlemler:
 - **Kayıt dosyaları:** `logs\app.log` (arayüz) ve `logs\engine.log` (motor, çökme ayrıntılarıyla birlikte), 1 MB'ta dönüşümlü. *Genel → Kayıt klasörünü aç* ile açılır.
 - **Ayar doğrulama:** Geçersiz değerler varsayılana döner ya da sınırlara çekilir. Bozuk `config.json` dosyası `config.json.broken-<tarih>` olarak saklanır, uygulama varsayılanlarla açılır.
 - **Anlaşılır hata mesajları:** Kamera açılmıyorsa, kamera başka bir programda açıksa, sürücü yüklü değilse ya da UDP portu meşgulse ne yapman gerektiği yazar ve iki kalın bip sesi duyulur.
+- **Sürücü sürüm kontrolü:** SteamVR eski bir WebcamFBT sürücüsü çalıştırıyorsa uyarır.
 - **Quest merkezleme:** Takip alanı değişirse (Meta butonuna basılı tutup merkezleme) kalibrasyon otomatik düzeltilir ve uyarı verilir. Kayık görünürse F8.
 
 ## Sınırlar (tek kamera)

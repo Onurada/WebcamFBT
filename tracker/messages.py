@@ -5,6 +5,7 @@ import unicodedata
 
 LANGUAGES = ("tr", "en")
 _lang = "en"
+_hotkeys = {"cal": "F8", "pause": "F9"}  # filled into every text that mentions a hotkey
 
 MESSAGES = {
     "vr_connected": {"tr": "SteamVR'a bağlanıldı", "en": "Connected to SteamVR"},
@@ -19,8 +20,8 @@ MESSAGES = {
         "en": "Calibration done: yaw {yaw:.1f}°, scale {scale:.2f}, floor {floor:.2f} m, {n} samples",
     },
     "calib_loaded": {
-        "tr": "Kayıtlı kalibrasyon yüklendi. Kamerayı oynattıysan ya da Quest'te merkezleme yaptıysan F8 ile yenile.",
-        "en": "Saved calibration loaded. Press F8 to redo it if the camera moved or you recentered the Quest.",
+        "tr": "Kayıtlı kalibrasyon yüklendi. Kamerayı oynattıysan ya da Quest'te merkezleme yaptıysan {cal} ile yenile.",
+        "en": "Saved calibration loaded. Press {cal} to redo it if the camera moved or you recentered the Quest.",
     },
     "camera_ok": {"tr": "Kamera {i}: çalışıyor {w}x{h}", "en": "Camera {i}: working {w}x{h}"},
     "camera_no_image": {"tr": "Kamera {i}: açıldı ama görüntü yok", "en": "Camera {i}: opened but no image"},
@@ -63,14 +64,24 @@ MESSAGES = {
         "en": "The SteamVR driver cannot receive data: UDP port {port} is used by another program. Close that "
               "program and restart SteamVR.",
     },
+    "hotkey_failed": {
+        "tr": "Kısayol {key} kaydedilemedi: başka bir program kullanıyor olabilir. Arayüzden başka bir tuş seç.",
+        "en": "Hotkey {key} could not be registered: another program may be using it. Pick another key in the app.",
+    },
+    "driver_outdated": {
+        "tr": "SteamVR eski bir WebcamFBT sürücüsü çalıştırıyor (sürüm {have}, gereken {want}). SteamVR'ı tamamen "
+              "kapatıp yeniden aç; düzelmezse SteamVR kapalıyken 'Kur / onar'a bas.",
+        "en": "SteamVR is running an older WebcamFBT driver (version {have}, needed {want}). Fully close and reopen "
+              "SteamVR; if that does not help, press 'Install / repair' while SteamVR is closed.",
+    },
     "driver_ok": {"tr": "SteamVR sürücüsü yeniden veri alıyor.", "en": "The SteamVR driver is receiving data again."},
     "recenter_fixed": {
-        "tr": "Takip alanı değişti (Quest'te merkezleme). Kalibrasyon otomatik düzeltildi; kayık görünürse F8.",
-        "en": "The tracking space changed (Quest recenter). Calibration was corrected automatically; press F8 if anything looks off.",
+        "tr": "Takip alanı değişti (Quest'te merkezleme). Kalibrasyon otomatik düzeltildi; kayık görünürse {cal}.",
+        "en": "The tracking space changed (Quest recenter). Calibration was corrected automatically; press {cal} if anything looks off.",
     },
     "recenter_maybe": {
-        "tr": "SteamVR takip alanının değiştiğini bildirdi. Tracker'lar kayık görünürse F8 ile yeniden kalibre et.",
-        "en": "SteamVR reported a tracking space change. If the trackers look off, recalibrate with F8.",
+        "tr": "SteamVR takip alanının değiştiğini bildirdi. Tracker'lar kayık görünürse {cal} ile yeniden kalibre et.",
+        "en": "SteamVR reported a tracking space change. If the trackers look off, recalibrate with {cal}.",
     },
     "engine_started": {
         "tr": "Motor başladı: kamera {cam}, model {model}",
@@ -86,14 +97,14 @@ MESSAGES = {
     "ov_vr_wait": {"tr": "SteamVR: bekleniyor...", "en": "SteamVR: waiting..."},
     "ov_countdown": {"tr": "KALİBRASYON: dik dur, ileri bak... {t:.1f}", "en": "CALIBRATION: stand straight, look ahead... {t:.1f}"},
     "ov_collect": {"tr": "KALİBRASYON: kıpırdama...", "en": "CALIBRATION: hold still..."},
-    "ov_nocal": {"tr": "Kalibrasyon yok: kaskı tak, F8'e bas", "en": "Not calibrated: put the headset on, press F8"},
+    "ov_nocal": {"tr": "Kalibrasyon yok: kaskı tak, {cal} tuşuna bas", "en": "Not calibrated: put the headset on, press {cal}"},
     "ov_cal": {"tr": "Kalibre (ölçek {scale:.2f})  gönderilen tracker: {n}", "en": "Calibrated (scale {scale:.2f})  trackers sent: {n}"},
-    "ov_paused": {"tr": "DURAKLATILDI (F9)", "en": "PAUSED (F9)"},
+    "ov_paused": {"tr": "DURAKLATILDI ({pause})", "en": "PAUSED ({pause})"},
     "help": {
         "tr": "Tuşlar (önizleme penceresi): C = kalibrasyon, P = duraklat, [ ] = yön -/+ 2°, - = = ölçek, Q/Esc = çıkış\n"
-              "Genel kısayollar (VR'dayken de çalışır): F8 = kalibrasyon, F9 = duraklat/devam",
+              "Genel kısayollar (VR'dayken de çalışır): {cal} = kalibrasyon, {pause} = duraklat/devam",
         "en": "Keys (preview window): C = calibrate, P = pause, [ ] = yaw -/+ 2°, - = = scale, Q/Esc = quit\n"
-              "Global hotkeys (work while in VR): F8 = calibrate, F9 = pause/resume",
+              "Global hotkeys (work while in VR): {cal} = calibrate, {pause} = pause/resume",
     },
 }
 
@@ -103,10 +114,14 @@ def set_language(code):
     _lang = code if code in LANGUAGES else "en"
 
 
+def set_hotkeys(calibrate, pause):
+    _hotkeys.update(cal=calibrate, pause=pause)
+
+
 def T(key, **kw):
     entry = MESSAGES.get(key, {})
     text = entry.get(_lang) or entry.get("en") or key
-    return text.format(**kw) if kw else text
+    return text.format(**{**_hotkeys, **kw})
 
 
 def ascii_fold(text):

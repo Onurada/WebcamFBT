@@ -24,6 +24,10 @@ using namespace vr;
 static const int kUdpPort = 39570;
 static const uint32_t kMagic = 0x54424657; // "WFBT"
 static const int kMaxTrackers = 8;
+// Bump together with PROTOCOL in tracker/webcam_fbt.py. The engine reads it back from the
+// trackers' Prop_DriverVersion_String and warns when SteamVR still runs an older driver.
+// 1 = original, 2 = version trailer after the tracker records.
+static const uint32_t kProtocol = 2;
 
 struct TrackerInfo {
     const char *serial;
@@ -138,6 +142,7 @@ public:
         VRProperties()->SetBoolProperty(props, Prop_WillDriftInYaw_Bool, false);
         VRProperties()->SetBoolProperty(props, Prop_DeviceIsWireless_Bool, false);
         VRProperties()->SetBoolProperty(props, Prop_DeviceProvidesBatteryStatus_Bool, false);
+        VRProperties()->SetStringProperty(props, Prop_DriverVersion_String, std::to_string(kProtocol).c_str());
 
         // Assign the body role so VRChat etc. pick it up without manual setup.
         std::string key = std::string("/devices/webcamfbt/") + info.serial;
@@ -255,7 +260,17 @@ private:
             PacketHeader hdr;
             memcpy(&hdr, buf, sizeof(hdr));
             if (hdr.magic != kMagic || hdr.count > kMaxTrackers) continue;
-            if (n < (int)(sizeof(PacketHeader) + hdr.count * sizeof(PacketTracker))) continue;
+            size_t records = sizeof(PacketHeader) + hdr.count * sizeof(PacketTracker);
+            if (n < (int)records) continue;
+            // Protocol 2+ engines append their version; older drivers simply ignore the extra bytes.
+            uint32_t engineProtocol = 1;
+            if (n >= (int)(records + sizeof(uint32_t))) memcpy(&engineProtocol, buf + records, sizeof(engineProtocol));
+            if (engineProtocol != kProtocol && !protocolWarned_) {
+                protocolWarned_ = true;
+                std::string msg = "[webcamfbt] engine protocol " + std::to_string(engineProtocol) +
+                                  " != driver protocol " + std::to_string(kProtocol) + "\n";
+                Log(msg.c_str());
+            }
 
             auto now = Clock::now();
             std::lock_guard<std::mutex> lock(mutex_);
@@ -270,6 +285,7 @@ private:
 
     SOCKET sock_ = INVALID_SOCKET;
     std::atomic<bool> running_{false};
+    bool protocolWarned_ = false;
     std::thread thread_;
     std::mutex mutex_;
     SharedPose poses_[kMaxTrackers];

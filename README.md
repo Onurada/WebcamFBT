@@ -40,6 +40,8 @@ Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both
 | **F8** (anywhere) | Calibrate |
 | **F9** (anywhere) | Pause / resume sending trackers |
 
+The keys can be changed under *General* (F1–F12, also with Ctrl). They use Windows' `RegisterHotKey`, so while WebcamFBT runs the chosen keys are not passed on to the game.
+
 ## Performance and stability
 Measured on this PC (Ryzen 5 2600):
 - Model time: lite 22 ms, full 37 ms, heavy 133 ms. Preview and everything else together take under 2 ms.
@@ -59,6 +61,7 @@ What protects against failures:
 - **Log files:** `logs\app.log` (app) and `logs\engine.log` (engine, including crash details), rotated at 1 MB. Open them with *General → Open log folder*.
 - **Settings validation:** invalid values fall back to defaults or are clamped. A broken `config.json` is kept as `config.json.broken-<date>` and the app starts with defaults.
 - **Clear error messages:** if the camera can't be opened, is used by another program, the driver isn't installed or its UDP port is taken, you get a message saying what to do, plus two low beeps.
+- **Driver version check:** warns when SteamVR still runs an older WebcamFBT driver.
 - **Quest recenter:** when the tracking space changes (holding the Meta button to recenter), the calibration is corrected automatically and you get a warning. Press F8 if anything looks off.
 
 ## Limits (single camera)

@@ -29,7 +29,7 @@
     <sys:String x:Key="S.Calib.Running">yapılıyor…</sys:String>
     <sys:String x:Key="S.Calib.Ready">hazır</sys:String>
     <sys:String x:Key="S.Calib.ReadySaved">hazır (kayıtlı)</sys:String>
-    <sys:String x:Key="S.Calib.None">yok (F8)</sys:String>
+    <sys:String x:Key="S.Calib.None">yok ({0})</sys:String>
     <sys:String x:Key="S.Sent.Paused">duraklatıldı</sys:String>
     <sys:String x:Key="S.Sent.Count">{0} gönderiliyor</sys:String>
     <sys:String x:Key="S.Sent.None">gönderilmiyor</sys:String>
@@ -60,8 +60,8 @@
     <sys:String x:Key="S.Control.Title">Kontrol</sys:String>
     <sys:String x:Key="S.Control.Start">▶  Başlat</sys:String>
     <sys:String x:Key="S.Control.Stop">■  Durdur</sys:String>
-    <sys:String x:Key="S.Control.Calibrate">Kalibre et (F8)</sys:String>
-    <sys:String x:Key="S.Control.Pause">Duraklat (F9)</sys:String>
+    <sys:String x:Key="S.Control.Calibrate">Kalibre et ({0})</sys:String>
+    <sys:String x:Key="S.Control.Pause">Duraklat ({0})</sys:String>
     <sys:String x:Key="S.Control.NoVr">SteamVR olmadan test et (sadece önizleme)</sys:String>
     <sys:String x:Key="S.Control.Hint">Kalibrasyon: kask takılı, kameranın önünde dik dur ve düz ileri bak. İlk bipten sonra 3 sn, ikinci bipte 2 sn kıpırdama.</sys:String>
 
@@ -127,7 +127,7 @@
     <sys:String x:Key="S.Driver.UninstallDone">Sürücü kaldırıldı.</sys:String>
     <sys:String x:Key="S.Driver.Failed">Sürücü işlemi başarısız: {0}</sys:String>
 
-    <sys:String x:Key="S.Footer">F8 = kalibrasyon, F9 = duraklat. Bu kısayollar oyundayken de çalışır.</sys:String>
+    <sys:String x:Key="S.Footer">{0} = kalibrasyon, {1} = duraklat. Bu kısayollar oyundayken de çalışır (o tuşlar oyuna gitmez).</sys:String>
 
     <!-- Kayıt -->
     <sys:String x:Key="S.Log.Folder">Klasör: {0}</sys:String>
@@ -155,9 +155,14 @@
     <sys:String x:Key="S.Camera.NoFrames">görüntü yok</sys:String>
     <sys:String x:Key="S.Vr.DriverMissing">sürücü veri almıyor</sys:String>
     <sys:String x:Key="S.Vr.PortBusy">port meşgul</sys:String>
+    <sys:String x:Key="S.Vr.DriverOutdated">sürücü eski (SteamVR'ı yeniden aç)</sys:String>
     <sys:String x:Key="S.Overlay.RecenterTitle">Takip alanı değişti</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterFixed">Kalibrasyon otomatik düzeltildi. Kayık görünürse F8.</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterMaybe">Tracker'lar kayık görünürse F8 ile yeniden kalibre et.</sys:String>
-    <sys:String x:Key="S.Calib.Check">kontrol et (F8)</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterFixed">Kalibrasyon otomatik düzeltildi. Kayık görünürse {0}.</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterMaybe">Tracker'lar kayık görünürse {0} ile yeniden kalibre et.</sys:String>
+    <sys:String x:Key="S.Calib.Check">kontrol et ({0})</sys:String>
     <sys:String x:Key="S.General.OpenLogs">Kayıt klasörünü aç</sys:String>
+    <sys:String x:Key="S.General.HotkeyCalibrate">Kalibrasyon kısayolu</sys:String>
+    <sys:String x:Key="S.General.HotkeyPause">Duraklatma kısayolu</sys:String>
+    <sys:String x:Key="S.Log.HotkeysChanged">Kısayollar değişti</sys:String>
+    <sys:String x:Key="S.Log.HotkeyDuplicate">İki işlem aynı tuşu kullanamaz.</sys:String>
 </ResourceDictionary>

@@ -163,9 +163,9 @@
                                 <ColumnDefinition Width="10"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Button x:Name="CalibrateButton" Content="{DynamicResource S.Control.Calibrate}" HorizontalAlignment="Stretch"
+                            <Button x:Name="CalibrateButton" HorizontalAlignment="Stretch"
                                     IsEnabled="False" Click="CalibrateButton_Click"/>
-                            <ToggleButton x:Name="PauseButton" Grid.Column="2" Content="{DynamicResource S.Control.Pause}" HorizontalAlignment="Stretch"
+                            <ToggleButton x:Name="PauseButton" Grid.Column="2" HorizontalAlignment="Stretch"
                                           IsEnabled="False" Click="PauseButton_Click"/>
                         </Grid>
                         <CheckBox x:Name="NoVrCheck" Content="{DynamicResource S.Control.NoVr}" Margin="0,10,0,0"/>
@@ -184,6 +184,21 @@
                             <TextBlock Text="{DynamicResource S.General.Language}" Style="{StaticResource FieldLabel}"/>
                             <ComboBox x:Name="LanguageCombo" Grid.Column="1" HorizontalAlignment="Stretch"
                                       SelectionChanged="LanguageCombo_SelectionChanged"/>
+                        </Grid>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="140"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{DynamicResource S.General.HotkeyCalibrate}" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="HotkeyCalibrateCombo" Grid.Column="1" Tag="hotkey_calibrate" SelectionChanged="HotkeyCombo_SelectionChanged"/>
+                            <TextBlock Grid.Row="2" Text="{DynamicResource S.General.HotkeyPause}" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="HotkeyPauseCombo" Grid.Row="2" Grid.Column="1" Tag="hotkey_pause" SelectionChanged="HotkeyCombo_SelectionChanged"/>
                         </Grid>
                         <CheckBox x:Name="AutoStartCheck" Content="{DynamicResource S.General.AutoStart}" Margin="0,10,0,0" Click="AutoStartCheck_Click"/>
                         <CheckBox x:Name="RememberCalibCheck" Content="{DynamicResource S.General.RememberCalib}" Margin="0,6,0,0" Click="RememberCalibCheck_Click"/>
@@ -330,7 +345,7 @@
                     </StackPanel>
                 </Border>
 
-                <TextBlock Style="{StaticResource Hint}" Margin="4,0,0,8" Text="{DynamicResource S.Footer}"/>
+                <TextBlock x:Name="FooterText" Style="{StaticResource Hint}" Margin="4,0,0,8"/>
             </StackPanel>
         </ScrollViewer>
     </Grid>

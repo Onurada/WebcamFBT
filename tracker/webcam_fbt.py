@@ -6,18 +6,20 @@ headset pose from SteamVR and streams tracker poses over UDP to the webcamfbt dr
 Without --ipc an OpenCV preview window is shown (keys: C calibrate, P pause, [ ] yaw,
 - = scale, Q/Esc quit). With --ipc there is no window: the WPF app drives the engine with
 JSON lines on stdin and receives status / preview frames / log lines as JSON lines on stdout.
-Global hotkeys work in both modes: F8 = calibrate, F9 = pause/resume.
+Global hotkeys (default F8 = calibrate, F9 = pause/resume, configurable) work in both modes.
 """
 
 import argparse
 import base64
 import ctypes
+import ctypes.wintypes
 import json
 import logging
 import logging.handlers
 import math
 import os
 import queue
+import re
 import socket
 import struct
 import sys
@@ -41,6 +43,7 @@ CALIBRATION_FILE = os.path.join(HERE, "calibration.json")
 # Order must match kTrackers in driver_webcamfbt.cpp
 TRACKERS = ["hip", "left_foot", "right_foot", "left_knee", "right_knee", "chest", "left_elbow", "right_elbow"]
 MAGIC = 0x54424657
+PROTOCOL = 2  # must match kProtocol in driver_webcamfbt.cpp (sent after the tracker records)
 
 # MediaPipe BlazePose landmark indices
 NOSE, L_EYE, R_EYE, L_EAR, R_EAR = 0, 2, 5, 7, 8
@@ -63,7 +66,7 @@ REQUIRED = {
 # HMD origin -> midpoint between the ears, in HMD local space (x right, y up, +z backwards)
 HMD_TO_EARS = np.array([0.0, -0.02, 0.09])
 
-VK_F8, VK_F9 = 0x77, 0x78
+
 
 DEFAULTS = {
     "camera_index": 0,
@@ -86,6 +89,8 @@ DEFAULTS = {
     "remember_calibration": True,
     "high_priority": True,
     "preview_fps": 20,
+    "hotkey_calibrate": "F8",
+    "hotkey_pause": "F9",
 }
 RANGES = {
     "camera_index": (0, 15), "camera_width": (160, 3840), "camera_height": (120, 2160), "camera_fps": (5, 120),
@@ -145,6 +150,8 @@ def validate_config(raw):
             else:
                 fix(key, value, trackers)
             cfg[key] = trackers
+        elif key.startswith("hotkey_"):
+            cfg[key] = value if parse_hotkey(value) else fix(key, value, default)
         elif key in CHOICES:
             cfg[key] = value if value in CHOICES[key] else fix(key, value, default)
         elif isinstance(default, bool):
@@ -452,13 +459,24 @@ class VRLink:
         self.space_event = False  # SteamVR announced a recenter / chaperone change
 
     def driver_trackers(self):
-        """How many WebcamFBT trackers SteamVR currently has (None if unknown)."""
+        """(count, driver protocol) of the WebcamFBT trackers SteamVR has, or None if unknown.
+        Drivers from before the version check report no version, which counts as protocol 1."""
         if self.sys is None:
             return None
         try:
-            return sum(1 for i in range(1, openvr.k_unMaxTrackedDeviceCount)
-                       if self.sys.getTrackedDeviceClass(i) == openvr.TrackedDeviceClass_GenericTracker
-                       and self.sys.getStringTrackedDeviceProperty(i, openvr.Prop_TrackingSystemName_String) == "webcamfbt")
+            count, protocol = 0, None
+            for i in range(1, openvr.k_unMaxTrackedDeviceCount):
+                if self.sys.getTrackedDeviceClass(i) != openvr.TrackedDeviceClass_GenericTracker:
+                    continue
+                if self.sys.getStringTrackedDeviceProperty(i, openvr.Prop_TrackingSystemName_String) != "webcamfbt":
+                    continue
+                count += 1
+                if protocol is None:
+                    try:
+                        protocol = int(self.sys.getStringTrackedDeviceProperty(i, openvr.Prop_DriverVersion_String))
+                    except Exception:
+                        protocol = 1
+            return count, protocol
         except Exception:
             return None
 
@@ -526,6 +544,7 @@ class Sender:
         data = struct.pack("<II", MAGIC, len(poses))
         for tid, pos, q in poses:
             data += struct.pack("<II3f4f", tid, 1, *pos, *q)
+        data += struct.pack("<I", PROTOCOL)
         self.sock.sendto(data, self.addr)
 
 
@@ -565,6 +584,7 @@ class DriverWatch:
         self.sending_since = None
         self.next_check = 0.0
         self.state = "unknown"
+        self.driver_protocol = None
 
     def update(self, vr, sending, now):
         """Returns a message key when the state changes in a way worth telling, else None."""
@@ -576,14 +596,19 @@ class DriverWatch:
         if now - self.sending_since < self.GRACE or now < self.next_check:
             return None
         self.next_check = now + self.INTERVAL
-        count = vr.driver_trackers()
-        if count is None:
+        found = vr.driver_trackers()
+        if found is None:
             return None
-        new = "ok" if count > 0 else ("not_loaded" if udp_port_free(self.port) else "port_busy")
+        count, self.driver_protocol = found
+        if count == 0:
+            new = "not_loaded" if udp_port_free(self.port) else "port_busy"
+        else:
+            new = "ok" if self.driver_protocol == PROTOCOL else "outdated"
         old, self.state = self.state, new
         if new == old or (new == "ok" and old == "unknown"):
             return None
-        return {"ok": "driver_ok", "not_loaded": "driver_not_loaded", "port_busy": "port_busy"}[new]
+        return {"ok": "driver_ok", "not_loaded": "driver_not_loaded", "port_busy": "port_busy",
+                "outdated": "driver_outdated"}[new]
 
 
 def raise_priority():
@@ -593,16 +618,67 @@ def raise_priority():
     kernel32.SetPriorityClass(kernel32.GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS)
 
 
-class Hotkeys:
-    def __init__(self, keys):
-        self.user32 = ctypes.windll.user32
-        self.prev = {k: False for k in keys}
+HOTKEY_RE = re.compile(r"^((ctrl|alt|shift)\+)*f([1-9]|1[0-2])$", re.IGNORECASE)
+_MOD_FLAGS = {"alt": 0x1, "ctrl": 0x2, "shift": 0x4}
+MOD_NOREPEAT = 0x4000
+WM_HOTKEY, WM_QUIT = 0x0312, 0x0012
 
-    def pressed(self, vk):
-        down = bool(self.user32.GetAsyncKeyState(vk) & 0x8000)
-        hit = down and not self.prev[vk]
-        self.prev[vk] = down
-        return hit
+
+def parse_hotkey(text):
+    """'Ctrl+F8' -> (modifier flags, virtual key), or None if not a supported combination."""
+    if not isinstance(text, str) or not HOTKEY_RE.match(text.strip()):
+        return None
+    *mods, key = [p.strip().lower() for p in text.split("+")]
+    flags = 0
+    for m in mods:
+        flags |= _MOD_FLAGS[m]
+    return flags, 0x6F + int(key[1:])  # VK_F1 = 0x70
+
+
+class Hotkeys:
+    """System-wide hotkeys through RegisterHotKey: Windows reports only these combinations,
+    so the keyboard is never polled (which antivirus tools can mistake for a keylogger).
+    A registered key is not passed on to the game while WebcamFBT runs."""
+
+    def __init__(self, bindings):
+        self.bindings = dict(bindings)  # action -> "F8"
+        self.events = queue.Queue()
+        self.failed = []  # (action, key) that could not be registered
+        self.thread_id = None
+        ready = threading.Event()
+        self.thread = threading.Thread(target=self._run, args=(ready,), daemon=True)
+        self.thread.start()
+        ready.wait(2)
+
+    def _run(self, ready):
+        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+        self.thread_id = kernel32.GetCurrentThreadId()
+        actions = {}
+        for hotkey_id, (action, text) in enumerate(self.bindings.items(), start=1):
+            parsed = parse_hotkey(text)
+            if parsed and user32.RegisterHotKey(None, hotkey_id, parsed[0] | MOD_NOREPEAT, parsed[1]):
+                actions[hotkey_id] = action
+            else:
+                self.failed.append((action, text))
+        ready.set()
+        msg = ctypes.wintypes.MSG()
+        while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            if msg.message == WM_HOTKEY and msg.wParam in actions:
+                self.events.put(actions[msg.wParam])
+        for hotkey_id in actions:
+            user32.UnregisterHotKey(None, hotkey_id)
+
+    def pressed(self):
+        """Actions triggered since the last call."""
+        out = []
+        while not self.events.empty():
+            out.append(self.events.get_nowait())
+        return out
+
+    def close(self):
+        if self.thread_id:
+            ctypes.windll.user32.PostThreadMessageW(self.thread_id, WM_QUIT, 0, 0)
+            self.thread.join(timeout=1)
 
 
 # --------------------------------------------------------------------------- calibration
@@ -935,6 +1011,7 @@ def main():
 
     cfg, problems = load_config(args.config)
     messages.set_language(cfg["language"] or system_language())
+    messages.set_hotkeys(cfg["hotkey_calibrate"], cfg["hotkey_pause"])
     for name, kw in problems:
         log(T(name, **kw))
 
@@ -993,7 +1070,9 @@ def run(args, cfg, ipc):
     vr = VRLink(not args.no_vr)
     sender = Sender(cfg["udp_port"])
     driver = DriverWatch(cfg["udp_port"])
-    hotkeys = Hotkeys([VK_F8, VK_F9])
+    hotkeys = Hotkeys({"calibrate": cfg["hotkey_calibrate"], "pause": cfg["hotkey_pause"]})
+    for action, key in hotkeys.failed:
+        log(T("hotkey_failed", key=key))
     recenter_warn_at = None  # a SteamVR space event without a measurable jump: warn a bit later
     last_id = 0
     t0 = time.monotonic()
@@ -1076,10 +1155,11 @@ def run(args, cfg, ipc):
                     if ipc:
                         ipc.emit(type="recenter", corrected=False)
 
-            if hotkeys.pressed(VK_F8):
-                cal.start(now)
-            if hotkeys.pressed(VK_F9):
-                st.toggle_pause()
+            for action in hotkeys.pressed():
+                if action == "calibrate":
+                    cal.start(now)
+                elif action == "pause":
+                    st.toggle_pause()
             result = cal.update(now, P, vis, hmd)
             if result:
                 st.save_calibration()
@@ -1094,7 +1174,7 @@ def run(args, cfg, ipc):
                     sent = len(poses)
             problem = driver.update(vr, sent > 0, now)
             if problem:
-                log(T(problem, port=cfg["udp_port"]))
+                log(T(problem, port=cfg["udp_port"], have=driver.driver_protocol, want=PROTOCOL))
                 if problem != "driver_ok":
                     beep_warning()
 
@@ -1130,6 +1210,7 @@ def run(args, cfg, ipc):
             elif k in (ord("-"), ord("=")):
                 st.adjust_scale(0.98 if k == ord("-") else 1.02)
     finally:
+        hotkeys.close()
         cam.close()
         landmarker.close()
         if not ipc:

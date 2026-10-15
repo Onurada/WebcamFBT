@@ -187,9 +187,10 @@ def test_driver_watch():
     class FakeVR:
         connected = True
         count = 0
+        protocol = w.PROTOCOL
 
         def driver_trackers(self):
-            return self.count
+            return self.count, (self.protocol if self.count else None)
 
     import socket
     blocker = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -205,7 +206,37 @@ def test_driver_watch():
     vr.count = 3
     assert busy.update(vr, True, 11.0) == "driver_ok"
     assert busy.update(vr, True, 17.0) is None  # no repeats
+    vr.protocol = 1  # SteamVR still has the old driver loaded
+    assert busy.update(vr, True, 23.0) == "driver_outdated"
     blocker.close()
+
+
+def test_packet_layout():
+    """The driver reads 8-byte header + 36 bytes per tracker, then an optional protocol trailer."""
+    import struct
+    sent = []
+
+    class FakeSocket:
+        def sendto(self, data, addr):
+            sent.append(data)
+
+    s = w.Sender(39999)
+    s.sock = FakeSocket()
+    s.send([(0, np.zeros(3), np.array([1.0, 0, 0, 0])), (1, np.ones(3), np.array([1.0, 0, 0, 0]))])
+    data = sent[0]
+    assert len(data) == 8 + 2 * 36 + 4
+    assert struct.unpack_from("<II", data) == (w.MAGIC, 2)
+    assert struct.unpack_from("<I", data, 8 + 2 * 36)[0] == w.PROTOCOL
+
+
+def test_hotkey_parsing():
+    assert w.parse_hotkey("F8") == (0, 0x77)
+    assert w.parse_hotkey("Ctrl+Shift+F12") == (0x2 | 0x4, 0x7B)
+    for bad in ("F13", "A", "Ctrl+", 8, None):
+        assert w.parse_hotkey(bad) is None
+    cfg, problems = w.validate_config({"hotkey_calibrate": "Ctrl+F10", "hotkey_pause": "Space"})
+    assert cfg["hotkey_calibrate"] == "Ctrl+F10" and cfg["hotkey_pause"] == "F9"
+    assert [kw["key"] for _, kw in problems] == ["hotkey_pause"]
 
 
 def test_messages_complete():

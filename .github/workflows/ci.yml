@@ -1,0 +1,53 @@
+# Builds the app and the SteamVR driver and runs the offline tests on every push and pull request.
+# tests/test_ipc.py needs a webcam, so it only runs locally.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build app (WPF)
+        run: dotnet build ui -c Release
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build SteamVR driver
+        run: msbuild driver_src/driver_webcamfbt.vcxproj /p:Configuration=Release /p:Platform=x64 /p:SolutionDir=${{ github.workspace }}\ /m /nologo
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tracker/requirements.txt
+
+      - name: Install engine dependencies
+        run: python -m pip install -r tracker/requirements.txt
+
+      - name: Engine tests
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python tests/test_tracking.py
+
+      - name: Set up MSVC command line
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Driver interpolation test
+        working-directory: tests
+        run: |
+          cl /nologo /O2 /EHsc /std:c++17 /DNOMINMAX interp_test.cpp ws2_32.lib
+          .\interp_test.exe

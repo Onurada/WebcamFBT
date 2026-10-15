@@ -85,6 +85,7 @@ public partial class MainWindow : Window
         LanguageCombo.SelectedItem = LanguageCombo.Items.Cast<ComboBoxItem>().First(i => (string)i.Tag == Loc.Current);
 
         ResetChips();
+        RefreshHotkeyTexts();
         if (_startupError != null)
         {
             Fail(_startupError switch
@@ -138,6 +139,9 @@ public partial class MainWindow : Window
         AutoStartCheck.IsChecked = cfg.GetBool("auto_start", false);
         RememberCalibCheck.IsChecked = cfg.GetBool("remember_calibration", true);
         ShowPreviewCheck.IsChecked = cfg.GetBool("show_preview", true);
+        FillHotkeyCombo(HotkeyCalibrateCombo, CalibrateKey);
+        FillHotkeyCombo(HotkeyPauseCombo, PauseKey);
+        RefreshHotkeyTexts();
     }
 
     private void RebuildCameraItems()
@@ -203,6 +207,7 @@ public partial class MainWindow : Window
 
         // Texts set from code are re-rendered here; XAML texts follow the dictionary by themselves.
         RebuildCameraItems();
+        RefreshHotkeyTexts();
         RefreshDriverStatus();
         RenderPlaceholder();
         if (_engine.IsRunning)
@@ -370,7 +375,7 @@ public partial class MainWindow : Window
                 var corrected = msg.GetProperty("corrected").GetBoolean();
                 _recenterUntil = DateTime.Now.AddSeconds(15);
                 _calibResultUntil = DateTime.Now.AddSeconds(5);
-                ShowOverlay(Loc.T("Overlay.RecenterTitle"), Loc.T(corrected ? "Overlay.RecenterFixed" : "Overlay.RecenterMaybe"));
+                ShowOverlay(Loc.T("Overlay.RecenterTitle"), Loc.T(corrected ? "Overlay.RecenterFixed" : "Overlay.RecenterMaybe", CalibrateKey));
                 break;
             case "log":
                 Log(msg.GetProperty("msg").GetString() ?? "");
@@ -414,6 +419,9 @@ public partial class MainWindow : Window
             case "connected" when driverState == "port_busy":
                 SetChip(VrDot, VrValue, Loc.T("Vr.PortBusy"), Bad);
                 break;
+            case "connected" when driverState == "outdated":
+                SetChip(VrDot, VrValue, Loc.T("Vr.DriverOutdated"), Warn);
+                break;
             case "connected":
                 var hmd = s.GetProperty("hmd").GetBoolean();
                 SetChip(VrDot, VrValue, Loc.T(hmd ? "Vr.Connected" : "Vr.NoHmd"), hmd ? Good : Warn);
@@ -433,11 +441,11 @@ public partial class MainWindow : Window
         if (phase != null)
             SetChip(CalibDot, CalibValue, Loc.T("Calib.Running"), Warn);
         else if (calibrated && DateTime.Now < _recenterUntil)
-            SetChip(CalibDot, CalibValue, Loc.T("Calib.Check"), Warn);
+            SetChip(CalibDot, CalibValue, Loc.T("Calib.Check", CalibrateKey), Warn);
         else if (calibrated)
             SetChip(CalibDot, CalibValue, Loc.T(saved ? "Calib.ReadySaved" : "Calib.Ready"), Good);
         else
-            SetChip(CalibDot, CalibValue, Loc.T("Calib.None"), Warn);
+            SetChip(CalibDot, CalibValue, Loc.T("Calib.None", CalibrateKey), Warn);
         ScaleText.Text = calibrated ? s.GetProperty("scale").GetDouble().ToString("0.00") : "";
 
         var paused = s.GetProperty("paused").GetBoolean();
@@ -609,6 +617,52 @@ public partial class MainWindow : Window
     }
 
     private void AutoStartCheck_Click(object sender, RoutedEventArgs e) => SetLocal("auto_start", AutoStartCheck.IsChecked == true);
+
+    // ------------------------------------------------------------------ hotkeys
+
+    // Same set the engine accepts (parse_hotkey in webcam_fbt.py): F1-F12, optionally with Ctrl.
+    private static readonly string[] HotkeyChoices =
+        Enumerable.Range(1, 12).Select(i => $"F{i}").Concat(Enumerable.Range(1, 12).Select(i => $"Ctrl+F{i}")).ToArray();
+
+    private string CalibrateKey => _cfg?.GetString("hotkey_calibrate", "F8") ?? "F8";
+    private string PauseKey => _cfg?.GetString("hotkey_pause", "F9") ?? "F9";
+
+    private static void FillHotkeyCombo(ComboBox combo, string current)
+    {
+        combo.Items.Clear();
+        foreach (var key in HotkeyChoices.Contains(current) ? HotkeyChoices : HotkeyChoices.Prepend(current))
+            combo.Items.Add(key);
+        combo.SelectedItem = current;
+    }
+
+    private void RefreshHotkeyTexts()
+    {
+        CalibrateButton.Content = Loc.T("Control.Calibrate", CalibrateKey);
+        PauseButton.Content = Loc.T("Control.Pause", PauseKey);
+        FooterText.Text = Loc.T("Footer", CalibrateKey, PauseKey);
+    }
+
+    private async void HotkeyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || _cfg == null) return;
+        var combo = (ComboBox)sender;
+        var key = (string)combo.Tag;
+        var value = combo.SelectedItem as string;
+        var other = combo == HotkeyCalibrateCombo ? PauseKey : CalibrateKey;
+        if (value == null || value == _cfg.GetString(key, "")) return;
+        if (value == other)
+        {
+            Log(Loc.T("Log.HotkeyDuplicate"));
+            _loading = true;
+            combo.SelectedItem = _cfg.GetString(key, combo == HotkeyCalibrateCombo ? "F8" : "F9");
+            _loading = false;
+            return;
+        }
+        _cfg.Set(key, value);
+        SaveConfig();
+        RefreshHotkeyTexts();
+        await RestartEngineAsync("Log.HotkeysChanged"); // hotkeys are registered when the engine starts
+    }
 
     private void OpenLogsButton_Click(object sender, RoutedEventArgs e)
     {
