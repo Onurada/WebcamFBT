@@ -79,14 +79,18 @@ L_HEEL, R_HEEL, L_TOE, R_TOE = 29, 30, 31, 32
 # Landmarks that must be visible for each tracker to update (otherwise it holds its last pose)
 REQUIRED = {
     "hip": [L_HIP, R_HIP],
-    "left_foot": [L_ANK, L_HEEL, L_TOE],
-    "right_foot": [R_ANK, R_HEEL, R_TOE],
+    "left_foot": [L_ANK],
+    "right_foot": [R_ANK],
     "left_knee": [L_KNEE],
     "right_knee": [R_KNEE],
     "chest": [L_SH, R_SH],
     "left_elbow": [L_ELB],
     "right_elbow": [R_ELB],
 }
+
+# The foot's heel and toe set its direction only: with them cut off by the bottom of the picture
+# (common when standing close) the ankle still places the foot, which then keeps its last direction.
+FOOT_DIRECTION = {"left_foot": [L_HEEL, L_TOE], "right_foot": [R_HEEL, R_TOE]}
 
 # HMD origin -> midpoint between the ears, in HMD local space (x right, y up, +z backwards)
 HMD_TO_EARS = np.array([0.0, -0.02, 0.09])
@@ -133,7 +137,7 @@ DEFAULTS = {
     "hotkey_pause": "F9",
     "extra_cameras": [],  # optional extra cameras fused with the main one (at most 2)
     "camera_hfov": 60.0,  # horizontal field of view assumed by the setup assistant
-    "camera_latency": 0.08,  # s from the moment a frame is exposed until read() returns it (feet use the headset pose of then)
+    "camera_latency": 0.10,  # s from exposure to read() (measured 0.10 s on a LifeCam VX-1000 with replay.py); feet use the headset pose of then
 }
 RANGES = {
     "camera_latency": (0.0, 0.3),
@@ -311,6 +315,14 @@ def quat_from_matrix(m):
         q = ((m[1, 0] - m[0, 1]) / s, (m[0, 2] + m[2, 0]) / s, (m[1, 2] + m[2, 1]) / s, 0.25 * s)
     q = np.array(q)
     return q / np.linalg.norm(q)
+
+
+def matrix_from_quat(q):
+    """(w, x, y, z) -> 3x3 rotation matrix (inverse of quat_from_matrix)."""
+    w_, x, y, z = q
+    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - w_ * z), 2 * (x * z + w_ * y)],
+                     [2 * (x * y + w_ * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w_ * x)],
+                     [2 * (x * z - w_ * y), 2 * (y * z + w_ * x), 1 - 2 * (x * x + y * y)]])
 
 
 class OneEuro:
@@ -1476,6 +1488,12 @@ def build_poses(W, vis, floor, cfg, enabled, last, feet=None, now=0.0, carry=Non
         pose = None
         if vis[REQUIRED[name]].min() >= cfg["min_visibility"]:
             pose = builders[name]()
+            heel_toe = FOOT_DIRECTION.get(name)
+            if heel_toe and vis[heel_toe].min() < cfg["min_visibility"]:
+                if carry is not None and name in carry.rel:
+                    pose = (pose[0], yaw @ carry.rel[name][1])
+                elif name in last:
+                    pose = (pose[0], matrix_from_quat(last[name][2]))
             if carry is not None:
                 pose = carry.seen(name, pose[0], pose[1], hip_mid, yaw, now, knee)
         elif carry is not None and name != "hip":
