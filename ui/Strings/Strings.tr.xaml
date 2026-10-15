@@ -36,7 +36,7 @@
 
     <!-- Önizleme -->
     <sys:String x:Key="S.Placeholder.Off">Motor kapalı. Başlamak için sağdaki Başlat'a bas.</sys:String>
-    <sys:String x:Key="S.Placeholder.Starting">Motor başlatılıyor… (yaklaşık 5–10 sn)</sys:String>
+    <sys:String x:Key="S.Placeholder.Starting">Motor başlatılıyor… (birkaç saniye)</sys:String>
     <sys:String x:Key="S.Placeholder.Camera">Kamera açılıyor…</sys:String>
     <sys:String x:Key="S.Placeholder.Crashed">Motor beklenmedik şekilde durdu (kod {0}). Ayrıntılar aşağıdaki kayıtta.</sys:String>
     <sys:String x:Key="S.Placeholder.PreviewOff">Önizleme kapalı. Takip arka planda devam ediyor.</sys:String>
@@ -228,4 +228,33 @@
     <sys:String x:Key="S.Calib.ReadyMulti">hazır ({0}/{1})</sys:String>
     <sys:String x:Key="S.Overlay.OkPartial">Kalibre edilemeyen kamera: {0}. O kameranın seni baştan ayağa gördüğünden emin olup tekrar dene.</sys:String>
     <sys:String x:Key="S.Log.ExtraCamerasChanged">Ek kameralar değişti</sys:String>
+    <sys:String x:Key="S.Camera.Virtual">sanal, seni göstermez</sys:String>
+    <sys:String x:Key="S.Camera.Phone">telefon</sys:String>
+    <sys:String x:Key="S.Camera.NotWorking">görüntü yok</sys:String>
+    <sys:String x:Key="S.Log.VirtualCamera">Dikkat: '{0}' sanal bir kamera (OBS, Meta Quest Link vb.), odayı ve seni göstermez. Gerçek webcam'ini seç.</sys:String>
+    <sys:String x:Key="S.Tray.Show">Göster</sys:String>
+    <sys:String x:Key="S.Tray.Exit">Çıkış</sys:String>
+    <sys:String x:Key="S.Tray.MinimizedTitle">WebcamFBT çalışmaya devam ediyor</sys:String>
+    <sys:String x:Key="S.Tray.MinimizedText">Pencereyi geri açmak için bildirim alanındaki simgeye çift tıkla.</sys:String>
+    <sys:String x:Key="S.General.MinimizeToTray">Küçültünce bildirim alanına (sistem tepsisi) gönder</sys:String>
+    <sys:String x:Key="S.Wizard.Title">WebcamFBT kurulumu</sys:String>
+    <sys:String x:Key="S.Wizard.Open">Kurulum sihirbazı…</sys:String>
+    <sys:String x:Key="S.Wizard.Step">Adım {0} / {1}</sys:String>
+    <sys:String x:Key="S.Wizard.Next">İleri</sys:String>
+    <sys:String x:Key="S.Wizard.Back">Geri</sys:String>
+    <sys:String x:Key="S.Wizard.Finish">Bitir</sys:String>
+    <sys:String x:Key="S.Wizard.Skip">Atla</sys:String>
+    <sys:String x:Key="S.Wizard.StartNow">Bitirince motoru başlat</sys:String>
+    <sys:String x:Key="S.Wizard.WelcomeTitle">Hoş geldin</sys:String>
+    <sys:String x:Key="S.Wizard.WelcomeText">WebcamFBT webcam görüntünden vücudunu takip eder ve SteamVR'a sanal tracker olarak gönderir; VRChat, Vivecraft ve diğer SteamVR oyunlarında full body tracking için ayrı tracker satın alman gerekmez. Bu sihirbaz birkaç adımda her şeyi hazırlar. İstediğin zaman Genel bölümünden tekrar açabilirsin.</sys:String>
+    <sys:String x:Key="S.Wizard.DriverTitle">SteamVR sürücüsü</sys:String>
+    <sys:String x:Key="S.Wizard.DriverText">Tracker'ların SteamVR'da görünmesi için WebcamFBT sürücüsünün kurulu olması gerekir. Kurulu değilse SteamVR'ı kapatıp aşağıdaki butona bas.</sys:String>
+    <sys:String x:Key="S.Wizard.CameraTitle">Kamera</sys:String>
+    <sys:String x:Key="S.Wizard.CameraText">Kullanacağın kamerayı seç. Sanal kameralar (OBS, Meta Quest Link) odayı göstermez, onları seçme. Tara, gerçek kameraları açıp çalıştıklarını kontrol eder. Ek kameraları daha sonra Kamera ve model bölümünden ekleyebilirsin.</sys:String>
+    <sys:String x:Key="S.Wizard.NoCameras">Hiç kamera bulunamadı. Webcam'in takılı mı? Windows kamera izni açık mı (Ayarlar &gt; Gizlilik ve güvenlik &gt; Kamera)?</sys:String>
+    <sys:String x:Key="S.Wizard.VirtualNote">Listede 'sanal' yazanlar OBS ya da Meta Quest yazılımının eklediği kameralardır; seni göstermezler.</sys:String>
+    <sys:String x:Key="S.Wizard.PlacementTitle">Kamerayı yerleştir</sys:String>
+    <sys:String x:Key="S.Wizard.PlacementText">• Kamerayı oyun alanının önüne, yaklaşık 2–3 m uzağa koy.&#x0a;• Bel hizasında (yerden ~1 m) ve düz baksın.&#x0a;• Baştan ayağa tüm vücudun görünmeli, ayakların da.&#x0a;• Oda iyi aydınlatılmış olsun; karanlıkta kamera yavaşlar.&#x0a;&#x0a;Emin olamazsan motor çalışırken Kamera ve model bölümündeki Kurulum asistanı ile kamerayı nereye koyacağını haritada görebilir ya da yerini puanlatabilirsin.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationTitle">Kalibrasyon ve oyun</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Motoru başlat, Quest'i bağla ve SteamVR'ı aç.&#x0a;2. Kask takılıyken kameranın önünde dur ve {0}'e bas. İlk bipten sonra dik dur ve düz ileri bak; ikinci bipte 2 saniye kıpırdama. Tiz bip: tamam.&#x0a;3. Oyundaki FBT kalibrasyonunu yap:&#x0a;   • VRChat: T-pose ver, iki tetiğe bas.&#x0a;   • Vivecraft: Playermodel Settings'te model tipini Split Arms/Legs yap, sonra Calibrate FBT.&#x0a;&#x0a;Kamerayı oynatmadığın sürece kalibrasyon bir sonraki açılışta hatırlanır.</sys:String>
 </ResourceDictionary>

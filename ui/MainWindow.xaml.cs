@@ -33,6 +33,9 @@ public partial class MainWindow : Window
     private bool? _calibResultOk;
     private string _vrState = "off";
     private SetupAssistantWindow? _assistant;
+    private TrayIcon? _tray;
+    private bool _trayHintShown;
+    private DateTime _lastTrayStatus;
     private DateTime _recenterUntil;
 
     // Automatic restart: a crashed or hung engine is restarted, but not more than MaxRestarts
@@ -42,7 +45,7 @@ public partial class MainWindow : Window
     private static readonly TimeSpan HangTimeout = TimeSpan.FromSeconds(30);
     private readonly Queue<DateTime> _restartTimes = new();
     private bool _userStopped = true;
-    private List<(int Index, int Width, int Height)>? _scannedCameras;
+    private List<CameraInfo>? _scannedCameras;
     private (string Key, object[] Args) _placeholder = ("Placeholder.Off", []);
 
     private Brush Good => (Brush)FindResource("GoodBrush");
@@ -85,6 +88,9 @@ public partial class MainWindow : Window
             LanguageCombo.Items.Add(new ComboBoxItem { Content = name, Tag = code });
         LanguageCombo.SelectedItem = LanguageCombo.Items.Cast<ComboBoxItem>().First(i => (string)i.Tag == Loc.Current);
 
+        _tray = new TrayIcon(ShowFromTray, () => _engine.Send(new { cmd = "calibrate" }),
+            () => _engine.Send(new { cmd = "pause", value = PauseButton.IsChecked != true }), Close);
+        _tray.SetEngineRunning(false);
         ResetChips();
         RefreshHotkeyTexts();
         if (_startupError != null)
@@ -111,7 +117,11 @@ public partial class MainWindow : Window
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        if (_cfg != null && _cfg.GetBool("auto_start", false))
+        _ = LoadCameraNamesAsync();
+        var testing = Environment.GetCommandLineArgs().Contains("--assistant", StringComparer.OrdinalIgnoreCase);
+        if (_cfg != null && !_cfg.GetBool("setup_done", false) && !testing)
+            OpenWizard();
+        else if (_cfg != null && _cfg.GetBool("auto_start", false))
             StartEngine();
         // "WebcamFBT.exe --assistant" opens the setup assistant right away.
         var args = Environment.GetCommandLineArgs();
@@ -157,6 +167,7 @@ public partial class MainWindow : Window
         AutoStartCheck.IsChecked = cfg.GetBool("auto_start", false);
         RememberCalibCheck.IsChecked = cfg.GetBool("remember_calibration", true);
         ShowPreviewCheck.IsChecked = cfg.GetBool("show_preview", true);
+        MinimizeToTrayCheck.IsChecked = cfg.GetBool("minimize_to_tray", true);
         FillHotkeyCombo(HotkeyCalibrateCombo, CalibrateKey);
         FillHotkeyCombo(HotkeyPauseCombo, PauseKey);
         RefreshHotkeyTexts();
@@ -175,8 +186,8 @@ public partial class MainWindow : Window
         }
         else
         {
-            foreach (var (index, width, height) in _scannedCameras)
-                CameraCombo.Items.Add(new ComboBoxItem { Content = Loc.T("Camera.Item", index, width, height), Tag = index });
+            foreach (var cam in _scannedCameras)
+                CameraCombo.Items.Add(new ComboBoxItem { Content = cam.Label, Tag = cam.Index });
             if (_scannedCameras.All(c => c.Index != current))
                 CameraCombo.Items.Insert(0, new ComboBoxItem { Content = Loc.T("Camera.NotFound", current), Tag = current });
         }
@@ -191,7 +202,7 @@ public partial class MainWindow : Window
         if (_cfg == null) return;
         var main = _cfg.GetInt("camera_index", 0);
         var extras = _cfg.GetIntList("extra_cameras");
-        var available = _scannedCameras?.Select(c => (c.Index, Text: Loc.T("Camera.Item", c.Index, c.Width, c.Height))).ToList()
+        var available = _scannedCameras?.Select(c => (c.Index, Text: c.Label)).ToList()
                         ?? Enumerable.Range(0, 6).Select(i => (Index: i, Text: Loc.T("Camera.ItemSimple", i))).ToList();
         foreach (var e in extras.Where(e => available.All(a => a.Index != e)))
             available.Add((e, Loc.T("Camera.NotFound", e)));
@@ -220,6 +231,7 @@ public partial class MainWindow : Window
         _cfg.Set("extra_cameras", new System.Text.Json.Nodes.JsonArray(chosen.Select(i => (System.Text.Json.Nodes.JsonNode?)i).ToArray()));
         SaveConfig();
         RebuildExtraCameraItems();
+        WarnIfVirtual();
         await RestartEngineAsync("Log.ExtraCamerasChanged");
     }
 
@@ -275,8 +287,15 @@ public partial class MainWindow : Window
     private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading || LanguageCombo.SelectedItem is not ComboBoxItem item) return;
-        var code = (string)item.Tag;
+        ApplyLanguage((string)item.Tag);
+    }
+
+    private void ApplyLanguage(string code)
+    {
         if (code == Loc.Current) return;
+        _loading = true;
+        LanguageCombo.SelectedItem = LanguageCombo.Items.Cast<ComboBoxItem>().First(i => (string)i.Tag == code);
+        _loading = false;
         Loc.Apply(code);
         SetLive("language", code);
 
@@ -354,6 +373,7 @@ public partial class MainWindow : Window
         if (_restartTimes.Count >= MaxRestarts)
         {
             Log(Loc.T("Log.AutoRestartGaveUp", _restartTimes.Count + 1));
+            NotifyIfHidden("WebcamFBT", Loc.T("Log.AutoRestartGaveUp", _restartTimes.Count + 1));
             SetPlaceholder("Placeholder.Crashed", code);
             SetChip(EngineDot, EngineValue, Loc.T("Engine.Error"), Bad);
             return;
@@ -389,6 +409,8 @@ public partial class MainWindow : Window
         YawLeftButton.IsEnabled = YawRightButton.IsEnabled = ScaleDownButton.IsEnabled = ScaleUpButton.IsEnabled = running;
         NoVrCheck.IsEnabled = ScanButton.IsEnabled = !running;
         InstallDriverButton.IsEnabled = UninstallDriverButton.IsEnabled = !running;
+        _tray?.SetEngineRunning(running);
+        if (!running) _tray?.SetStatus(Loc.T("Engine.Off"));
         if (!running)
         {
             _syncingPause = true;
@@ -412,7 +434,36 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Window_StateChanged(object? sender, EventArgs e) => ApplyPreviewState();
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Minimized && MinimizeToTrayCheck.IsChecked == true)
+        {
+            Hide(); // keeps running in the notification area
+            if (!_trayHintShown)
+            {
+                _trayHintShown = true;
+                _tray?.ShowBalloon(Loc.T("Tray.MinimizedTitle"), Loc.T("Tray.MinimizedText"));
+            }
+        }
+        ApplyPreviewState();
+    }
+
+    private void ShowFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+        ApplyPreviewState();
+    }
+
+    /// <summary>Balloon from the tray icon when the window is hidden, so news is not missed.</summary>
+    private void NotifyIfHidden(string title, string text)
+    {
+        if (!IsVisible) _tray?.ShowBalloon(title, text);
+    }
+
+    private void MinimizeToTrayCheck_Click(object sender, RoutedEventArgs e) =>
+        SetLocal("minimize_to_tray", MinimizeToTrayCheck.IsChecked == true);
 
     // ------------------------------------------------------------------ engine events
 
@@ -463,6 +514,7 @@ public partial class MainWindow : Window
                 _recenterUntil = DateTime.Now.AddSeconds(15);
                 _calibResultUntil = DateTime.Now.AddSeconds(5);
                 ShowOverlay(Loc.T("Overlay.RecenterTitle"), Loc.T(corrected ? "Overlay.RecenterFixed" : "Overlay.RecenterMaybe", CalibrateKey));
+                NotifyIfHidden(Loc.T("Overlay.RecenterTitle"), Loc.T(corrected ? "Overlay.RecenterFixed" : "Overlay.RecenterMaybe", CalibrateKey));
                 break;
             case "log":
                 Log(msg.GetProperty("msg").GetString() ?? "");
@@ -556,6 +608,11 @@ public partial class MainWindow : Window
             SetChip(SentDot, SentValue, Loc.T("Sent.Paused"), Warn);
         else
             SetChip(SentDot, SentValue, sent > 0 ? Loc.T("Sent.Count", sent) : Loc.T("Sent.None"), sent > 0 ? Good : Idle);
+        if (DateTime.Now - _lastTrayStatus > TimeSpan.FromSeconds(1))
+        {
+            _lastTrayStatus = DateTime.Now;
+            _tray?.SetStatus($"{EngineValue.Text} · {CalibValue.Text} · {SentValue.Text}");
+        }
         if (PauseButton.IsChecked != paused)
         {
             _syncingPause = true;
@@ -574,6 +631,8 @@ public partial class MainWindow : Window
 
     private void ShowCalibResult(bool ok, bool keepTime = false)
     {
+        if (!keepTime)
+            NotifyIfHidden(Loc.T(ok ? "Overlay.OkTitle" : "Overlay.FailTitle"), Loc.T(ok ? "Overlay.OkSub" : "Overlay.FailSub"));
         _calibResultOk = ok;
         if (!keepTime)
             _calibResultUntil = DateTime.Now.AddSeconds(ok ? 2 : 4);
@@ -682,6 +741,7 @@ public partial class MainWindow : Window
         var index = (int)item.Tag;
         if (_cfg.GetInt("camera_index", 0) == index) return;
         _cfg.Set("camera_index", index);
+        WarnIfVirtual();
         var extras = _cfg.GetIntList("extra_cameras").Where(i => i != index).ToList();
         _cfg.Set("extra_cameras", new System.Text.Json.Nodes.JsonArray(extras.Select(i => (System.Text.Json.Nodes.JsonNode?)i).ToArray()));
         SaveConfig();
@@ -699,6 +759,30 @@ public partial class MainWindow : Window
         await RestartEngineAsync("Log.ModelChanged");
     }
 
+    /// <summary>Names only (no camera is opened), so it is safe while the engine runs.</summary>
+    private async Task LoadCameraNamesAsync()
+    {
+        if (_cfg == null) return;
+        try
+        {
+            var found = await Engine.ScanCamerasAsync(probe: false);
+            if (found.Count == 0 || _scannedCameras != null) return;
+            _scannedCameras = found;
+            RebuildCameraItems();
+            WarnIfVirtual();
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or JsonException) { }
+    }
+
+    /// <summary>Virtual cameras (OBS, Meta Quest Link...) never show the player: say so when one is picked.</summary>
+    private void WarnIfVirtual()
+    {
+        if (_cfg == null || _scannedCameras == null) return;
+        var chosen = new[] { _cfg.GetInt("camera_index", 0) }.Concat(_cfg.GetIntList("extra_cameras"));
+        foreach (var cam in _scannedCameras.Where(c => c.IsVirtual && chosen.Contains(c.Index)))
+            Log(Loc.T("Log.VirtualCamera", cam.Name ?? cam.Index.ToString()));
+    }
+
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
         ScanButton.IsEnabled = StartButton.IsEnabled = false;
@@ -706,7 +790,7 @@ public partial class MainWindow : Window
         Log(Loc.T("Log.ScanStart"));
         try
         {
-            _scannedCameras = await Engine.ScanCamerasAsync();
+            _scannedCameras = await Engine.ScanCamerasAsync(probe: true);
             RebuildCameraItems();
             Log(Loc.T("Log.ScanDone", _scannedCameras.Count));
         }
@@ -745,6 +829,7 @@ public partial class MainWindow : Window
         CalibrateButton.Content = Loc.T("Control.Calibrate", CalibrateKey);
         PauseButton.Content = Loc.T("Control.Pause", PauseKey);
         FooterText.Text = Loc.T("Footer", CalibrateKey, PauseKey);
+        _tray?.SetHotkeys(CalibrateKey, PauseKey);
     }
 
     private async void HotkeyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -767,6 +852,50 @@ public partial class MainWindow : Window
         SaveConfig();
         RefreshHotkeyTexts();
         await RestartEngineAsync("Log.HotkeysChanged"); // hotkeys are registered when the engine starts
+    }
+
+    private void WizardButton_Click(object sender, RoutedEventArgs e) => OpenWizard();
+
+    private void OpenWizard()
+    {
+        if (_cfg == null) return;
+        var host = new WizardHost(
+            ApplyLanguage: ApplyLanguage,
+            MainCamera: () => _cfg.GetInt("camera_index", 0),
+            SelectMainCamera: SelectMainCamera,
+            ScanCameras: async probe =>
+            {
+                if (probe && _engine.IsRunning) await StopEngineAsync(); // probing needs the cameras free
+                var cams = await Engine.ScanCamerasAsync(probe);
+                _scannedCameras = cams;
+                RebuildCameraItems();
+                return cams;
+            },
+            AutoStart: () => _cfg.GetBool("auto_start", false),
+            SetAutoStart: value =>
+            {
+                AutoStartCheck.IsChecked = value;
+                SetLocal("auto_start", value);
+            },
+            CalibrateKey: () => CalibrateKey,
+            Finish: startNow =>
+            {
+                SetLocal("setup_done", true);
+                SaveConfig();
+                if (startNow && !_engine.IsRunning) StartEngine();
+            });
+        new FirstRunWindow(host) { Owner = this }.ShowDialog();
+    }
+
+    private void SelectMainCamera(int index)
+    {
+        if (_cfg == null || _cfg.GetInt("camera_index", 0) == index) return;
+        _cfg.Set("camera_index", index);
+        var extras = _cfg.GetIntList("extra_cameras").Where(i => i != index).ToList();
+        _cfg.Set("extra_cameras", new System.Text.Json.Nodes.JsonArray(extras.Select(i => (System.Text.Json.Nodes.JsonNode?)i).ToArray()));
+        SaveConfig();
+        RebuildCameraItems();
+        WarnIfVirtual();
     }
 
     private void OpenLogsButton_Click(object sender, RoutedEventArgs e)
@@ -860,6 +989,12 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------ closing
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _tray?.Dispose();
+        base.OnClosed(e);
+    }
 
     protected override async void OnClosing(CancelEventArgs e)
     {

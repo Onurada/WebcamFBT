@@ -36,7 +36,7 @@
 
     <!-- Preview -->
     <sys:String x:Key="S.Placeholder.Off">Engine is off. Press Start on the right to begin.</sys:String>
-    <sys:String x:Key="S.Placeholder.Starting">Starting the engine… (about 5–10 s)</sys:String>
+    <sys:String x:Key="S.Placeholder.Starting">Starting the engine… (a few seconds)</sys:String>
     <sys:String x:Key="S.Placeholder.Camera">Opening the camera…</sys:String>
     <sys:String x:Key="S.Placeholder.Crashed">The engine stopped unexpectedly (code {0}). See the log below for details.</sys:String>
     <sys:String x:Key="S.Placeholder.PreviewOff">Preview is off. Tracking keeps running in the background.</sys:String>
@@ -228,4 +228,33 @@
     <sys:String x:Key="S.Calib.ReadyMulti">ready ({0}/{1})</sys:String>
     <sys:String x:Key="S.Overlay.OkPartial">Camera not calibrated: {0}. Make sure that camera sees you head to toe and try again.</sys:String>
     <sys:String x:Key="S.Log.ExtraCamerasChanged">Extra cameras changed</sys:String>
+    <sys:String x:Key="S.Camera.Virtual">virtual, won't show you</sys:String>
+    <sys:String x:Key="S.Camera.Phone">phone</sys:String>
+    <sys:String x:Key="S.Camera.NotWorking">no image</sys:String>
+    <sys:String x:Key="S.Log.VirtualCamera">Note: '{0}' is a virtual camera (OBS, Meta Quest Link, ...) and won't show the room or you. Pick your real webcam.</sys:String>
+    <sys:String x:Key="S.Tray.Show">Show</sys:String>
+    <sys:String x:Key="S.Tray.Exit">Exit</sys:String>
+    <sys:String x:Key="S.Tray.MinimizedTitle">WebcamFBT keeps running</sys:String>
+    <sys:String x:Key="S.Tray.MinimizedText">Double-click the icon in the notification area to bring the window back.</sys:String>
+    <sys:String x:Key="S.General.MinimizeToTray">Minimize to the notification area (system tray)</sys:String>
+    <sys:String x:Key="S.Wizard.Title">WebcamFBT setup</sys:String>
+    <sys:String x:Key="S.Wizard.Open">Setup wizard…</sys:String>
+    <sys:String x:Key="S.Wizard.Step">Step {0} of {1}</sys:String>
+    <sys:String x:Key="S.Wizard.Next">Next</sys:String>
+    <sys:String x:Key="S.Wizard.Back">Back</sys:String>
+    <sys:String x:Key="S.Wizard.Finish">Finish</sys:String>
+    <sys:String x:Key="S.Wizard.Skip">Skip</sys:String>
+    <sys:String x:Key="S.Wizard.StartNow">Start the engine when done</sys:String>
+    <sys:String x:Key="S.Wizard.WelcomeTitle">Welcome</sys:String>
+    <sys:String x:Key="S.Wizard.WelcomeText">WebcamFBT tracks your body from your webcam and sends it to SteamVR as virtual trackers, so you get full body tracking in VRChat, Vivecraft and other SteamVR games without buying trackers. This wizard gets everything ready in a few steps. You can open it again any time from the General section.</sys:String>
+    <sys:String x:Key="S.Wizard.DriverTitle">SteamVR driver</sys:String>
+    <sys:String x:Key="S.Wizard.DriverText">For the trackers to show up in SteamVR, the WebcamFBT driver must be installed. If it is not, close SteamVR and press the button below.</sys:String>
+    <sys:String x:Key="S.Wizard.CameraTitle">Camera</sys:String>
+    <sys:String x:Key="S.Wizard.CameraText">Pick the camera to use. Virtual cameras (OBS, Meta Quest Link) don't show the room, so don't pick those. Scan opens the real cameras to check that they work. You can add extra cameras later under Camera and model.</sys:String>
+    <sys:String x:Key="S.Wizard.NoCameras">No camera found. Is the webcam plugged in? Is Windows camera access on (Settings &gt; Privacy &amp; security &gt; Camera)?</sys:String>
+    <sys:String x:Key="S.Wizard.VirtualNote">Entries marked 'virtual' were added by OBS or the Meta Quest software; they won't show you.</sys:String>
+    <sys:String x:Key="S.Wizard.PlacementTitle">Place the camera</sys:String>
+    <sys:String x:Key="S.Wizard.PlacementText">• Put the camera in front of the play area, about 2–3 m away.&#x0a;• At waist height (~1 m off the floor), looking straight ahead.&#x0a;• Your whole body must be visible head to toe, feet included.&#x0a;• Keep the room well lit; in the dark the camera slows down.&#x0a;&#x0a;If unsure, once the engine runs, the Setup assistant under Camera and model shows on a map where to put the camera, or scores the spot you picked.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationTitle">Calibration and games</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Start the engine, connect the Quest and start SteamVR.&#x0a;2. Wearing the headset, stand in front of the camera and press {0}. After the first beep stand straight and look ahead; at the second beep hold still for 2 seconds. High beep: done.&#x0a;3. Run your game's full body calibration:&#x0a;   • VRChat: T-pose, then pull both triggers.&#x0a;   • Vivecraft: set the model type to Split Arms/Legs in Playermodel Settings, then Calibrate FBT.&#x0a;&#x0a;As long as the camera does not move, the calibration is remembered next time.</sys:String>
 </ResourceDictionary>

@@ -28,12 +28,22 @@ import time
 import winsound
 
 import cv2
-import mediapipe as mp
 import numpy as np
 import openvr
-from mediapipe.tasks import python as mp_tasks
-from mediapipe.tasks.python import vision
 
+# MediaPipe takes ~1.5 s to import; it is loaded by load_mediapipe() while the cameras open.
+mp = mp_tasks = vision = None
+
+
+def load_mediapipe():
+    global mp, mp_tasks, vision
+    if mp is None:
+        import mediapipe
+        from mediapipe.tasks import python as tasks
+        from mediapipe.tasks.python import vision as vis
+        mp, mp_tasks, vision = mediapipe, tasks, vis
+
+import cameras
 import messages
 import placement
 from messages import T, ascii_fold
@@ -375,7 +385,8 @@ class Camera:
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        if abs(cap.get(cv2.CAP_PROP_FPS) - self.fps) > 1:
+        reported_fps = cap.get(cv2.CAP_PROP_FPS)
+        if reported_fps > 0 and abs(reported_fps - self.fps) > 1:  # -1 = unknown: setting it costs a restart
             cap.set(cv2.CAP_PROP_FPS, self.fps)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         return cap
@@ -1037,6 +1048,7 @@ def compute_poses(P, vis, hmd, cal, cfg, enabled, last, feet=None, now=0.0):
 
 def draw(frame, landmarks, mirror, lines):
     """A copy of the frame with the skeleton (and optional text lines) drawn on it."""
+    load_mediapipe()
     h, w = frame.shape[:2]
     frame = cv2.flip(frame, 1) if mirror else frame.copy()
     if landmarks:
@@ -1059,17 +1071,14 @@ def put_lines(img, lines):
 
 
 def list_cameras():
-    found = []
-    for i in range(6):
-        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-        if cap.isOpened():
-            ok, f = cap.read()
-            if ok:
-                found.append({"index": i, "width": int(f.shape[1]), "height": int(f.shape[0])})
-                log(T("camera_ok", i=i, w=f.shape[1], h=f.shape[0]))
-            else:
-                log(T("camera_no_image", i=i))
-        cap.release()
+    """Real cameras with their names (cameras.py does the work; virtual ones are listed, not opened)."""
+    found = cameras.list_devices(do_probe=True)
+    for c in found:
+        label = f"{c['name'] or '?'} [{c['kind']}]"
+        if c["working"]:
+            log(T("camera_ok", i=c["index"], w=c["width"], h=c["height"]) + f"  {label}")
+        else:
+            log(f"{c['index']}: {label}")
     return found
 
 
@@ -1108,6 +1117,7 @@ class Ipc:
 # --------------------------------------------------------------------------- cameras
 
 def create_landmarker(model):
+    load_mediapipe()
     return vision.PoseLandmarker.create_from_options(vision.PoseLandmarkerOptions(
         base_options=mp_tasks.BaseOptions(model_asset_path=os.path.join(HERE, f"pose_landmarker_{model}.task")),
         running_mode=vision.RunningMode.VIDEO,
@@ -1131,11 +1141,11 @@ class CameraWorker:
     """A camera with its own pose model and filter on its own thread. MediaPipe releases the GIL
     while it runs, so two cameras are processed in parallel (measured: ~25 fps each with 'full')."""
 
-    def __init__(self, index, cfg):
+    def __init__(self, index, cfg, cam=None, landmarker=None):
         self.index = index
-        self.cam = Camera(index, cfg["camera_width"], cfg["camera_height"], cfg["camera_fps"])
+        self.cam = cam or Camera(index, cfg["camera_width"], cfg["camera_height"], cfg["camera_fps"])
         try:
-            self.landmarker = create_landmarker(cfg["model"])
+            self.landmarker = landmarker or create_landmarker(cfg["model"])
         except Exception:
             self.cam.close()
             raise
@@ -1464,13 +1474,42 @@ def emit_status(ipc, args, vr, st, driver, *, person, hmd, sent, now):
 
 
 def open_workers(cfg, ipc):
-    """The main camera must open; extra cameras are optional and are skipped with a message."""
-    workers = [CameraWorker(cfg["camera_index"], cfg)]
-    for index in cfg["extra_cameras"]:
+    """The main camera must open; extra cameras are optional and are skipped with a message.
+
+    Opening a DirectShow camera takes ~2 s, so all cameras open on their own threads while this
+    thread imports MediaPipe and creates the pose models; startup then costs the slowest of these
+    instead of their sum."""
+    indices = [cfg["camera_index"]] + cfg["extra_cameras"]
+    cams, errors = {}, {}
+
+    def open_one(i):
         try:
-            workers.append(CameraWorker(index, cfg))
+            cams[i] = Camera(i, cfg["camera_width"], cfg["camera_height"], cfg["camera_fps"])
         except Exception as e:
-            log(T("extra_camera_failed", i=index, err=e))
+            errors[i] = e
+
+    threads = [threading.Thread(target=open_one, args=(i,), daemon=True) for i in indices]
+    for t in threads:
+        t.start()
+    try:
+        models = {i: create_landmarker(cfg["model"]) for i in indices}
+    finally:
+        for t in threads:
+            t.join()
+    main_index = indices[0]
+    if main_index in errors:
+        for c in cams.values():
+            c.close()
+        for m in models.values():
+            m.close()
+        raise errors[main_index]
+    workers = []
+    for i in indices:
+        if i in cams:
+            workers.append(CameraWorker(i, cfg, cams[i], models[i]))
+        else:
+            models[i].close()
+            log(T("extra_camera_failed", i=i, err=errors[i]))
             beep_warning()
     return workers
 

@@ -9,6 +9,7 @@ public static class AppPaths
 
     public static string Python => Path.Combine(Root!, ".venv", "Scripts", "python.exe");
     public static string EngineScript => Path.Combine(Root!, "tracker", "webcam_fbt.py");
+    public static string CamerasScript => Path.Combine(Root!, "tracker", "cameras.py");
     public static string SetRolesScript => Path.Combine(Root!, "tracker", "set_roles.py");
     public static string ConfigFile => Path.Combine(Root!, "tracker", "config.json");
     public static string DriverDir => Path.Combine(Root!, "webcamfbt");

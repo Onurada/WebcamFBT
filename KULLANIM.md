@@ -10,7 +10,7 @@ Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En
 ## Başlarken
 1. **Kamerayı yerleştir:** Yaklaşık 2–3 m uzağa, bel ya da göğüs hizasına koy. Baştan ayağa **tüm vücudun** görünmeli. Ortam iyi aydınlatılmış olmalı; karanlıkta kamera saniyede 30 yerine 20 kare verir.
 2. Quest 3'ü PC'ye bağla (Steam Link / Air Link / Link kablosu) ve **SteamVR**'ı aç.
-3. `app\WebcamFBT.exe`'yi aç ve **Başlat**'a bas. Motorun açılması 5–10 sn sürer.
+3. `app\WebcamFBT.exe`'yi aç ve **Başlat**'a bas. Motor yaklaşık 3 saniyede açılır.
 4. **Kalibrasyon:** Kask takılıyken kameranın önünde dur ve **F8**'e bas. Bu kısayol oyundayken de çalışır.
    - İlk bipten sonra 3 saniye içinde **dik dur, düz ileri bak**, kollar yanda.
    - İkinci bipte **2 saniye kıpırdama**.
@@ -21,6 +21,11 @@ Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En
 
 > Kalibrasyon kaydedilir ve bir sonraki açılışta kendiliğinden yüklenir. **Kamerayı oynatırsan ya da Quest'te merkezleme yaparsan** F8 ile yenile.
 > Yeni tracker'ları (dirsek, diz…) açtıysan oyundaki FBT kalibrasyonunu da yenile.
+
+## İlk açılış ve bildirim alanı
+- **Kurulum sihirbazı:** İlk açılışta 5 adımda dili, SteamVR sürücüsünü, kamerayı, kameranın yerleşimini ve kalibrasyonu anlatır. *Genel → Kurulum sihirbazı…* ile tekrar açılır.
+- **Kamera adları:** Kameralar adıyla listelenir (ör. *Microsoft LifeCam VX-1000*). OBS ve Meta Quest Link'in eklediği **sanal** kameralar işaretlenir ve seçilirse uyarı verilir; telefon uygulamaları (DroidCam, Iriun) *telefon* olarak görünür.
+- **Bildirim alanı (sistem tepsisi):** Pencere küçültülünce bildirim alanına gider ve takip arka planda sürer. Simgenin menüsünden Göster, Kalibre et, Duraklat ve Çıkış seçilebilir; simgenin üstüne gelince durum görünür. Pencere gizliyken kalibrasyon sonucu ve önemli uyarılar balon bildirimiyle gelir. *Genel* bölümünden kapatılabilir.
 
 ## Birden fazla kamera (isteğe bağlı)
 Varsayılan tek kameradır. *Kamera ve model* bölümündeki **Ek kamera 1 / 2** ile en fazla iki kamera daha eklenebilir (telefonunu DroidCam ya da Iriun ile webcam olarak da kullanabilirsin).

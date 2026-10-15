@@ -11,6 +11,8 @@ When WebcamFBT is packaged for others (installer), the full license texts listed
 | OpenCV (`opencv-python`) | Camera capture, preview drawing | 5.0.0 | Apache-2.0 (bundled third-party parts: see the package's `LICENSE-3RD-PARTY.txt`) | https://github.com/opencv/opencv-python |
 | NumPy | Math | 2.5.4 | BSD-3-Clause (bundled parts: 0BSD, MIT, Zlib, CC0-1.0) | https://numpy.org |
 | pyopenvr (`openvr`) | Reading the headset pose from Python | 2.12.1401 | BSD-3-Clause | https://github.com/cmbruns/pyopenvr |
+| pygrabber | Camera names (DirectShow) | 0.2 | MIT | https://github.com/andreaschiavinato/python_grabber |
+| comtypes | COM access for pygrabber | 1.4.17 | MIT | https://github.com/enthought/comtypes |
 | .NET / WPF | Desktop app runtime | 10 | MIT | https://github.com/dotnet |
 
 The Vive tracker render model and input profile referenced by the driver (`{htc}vr_tracker_vive_1_0`,

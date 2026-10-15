@@ -121,35 +121,61 @@ public sealed class Engine
         return bmp;
     }
 
-    /// <summary>Runs the engine's camera scan (needs the camera to be free).</summary>
-    public static async Task<List<(int Index, int Width, int Height)>> ScanCamerasAsync()
+    /// <summary>
+    /// Lists the cameras by name via tracker/cameras.py (no MediaPipe, so it is quick).
+    /// With probe the real cameras are also opened to check them, which needs them to be free.
+    /// </summary>
+    public static async Task<List<CameraInfo>> ScanCamerasAsync(bool probe)
     {
         var psi = new ProcessStartInfo(AppPaths.Python)
         {
             WorkingDirectory = AppPaths.Root,
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
         };
-        psi.ArgumentList.Add("-u");
-        psi.ArgumentList.Add(AppPaths.EngineScript);
-        psi.ArgumentList.Add("--ipc");
-        psi.ArgumentList.Add("--list-cameras");
+        psi.ArgumentList.Add(AppPaths.CamerasScript);
+        if (probe) psi.ArgumentList.Add("--probe");
 
         using var p = Process.Start(psi)!;
         _ = p.StandardError.ReadToEndAsync();
-        var result = new List<(int, int, int)>();
+        var result = new List<CameraInfo>();
         string? line;
         while ((line = await p.StandardOutput.ReadLineAsync()) != null)
         {
             using var doc = JsonDocument.Parse(line);
             if (doc.RootElement.GetProperty("type").GetString() != "cameras") continue;
             foreach (var c in doc.RootElement.GetProperty("list").EnumerateArray())
-                result.Add((c.GetProperty("index").GetInt32(), c.GetProperty("width").GetInt32(), c.GetProperty("height").GetInt32()));
+            {
+                int? Int(string name) => c.GetProperty(name).ValueKind == JsonValueKind.Number ? c.GetProperty(name).GetInt32() : null;
+                bool? Bool(string name) => c.GetProperty(name).ValueKind is JsonValueKind.True or JsonValueKind.False ? c.GetProperty(name).GetBoolean() : null;
+                result.Add(new CameraInfo(c.GetProperty("index").GetInt32(),
+                    c.GetProperty("name").ValueKind == JsonValueKind.String ? c.GetProperty("name").GetString() : null,
+                    c.GetProperty("kind").GetString() ?? "webcam", Int("width"), Int("height"), Bool("working")));
+            }
         }
         await p.WaitForExitAsync();
         return result;
+    }
+}
+
+/// <summary>A video device. Kind is "webcam", "phone" (phone-as-webcam app) or "virtual" (OBS, Meta Quest Link...).</summary>
+public sealed record CameraInfo(int Index, string? Name, string Kind, int? Width, int? Height, bool? Working)
+{
+    public bool IsVirtual => Kind == "virtual";
+
+    public string Label
+    {
+        get
+        {
+            var text = Name ?? Loc.T("Camera.ItemSimple", Index);
+            if (Kind == "virtual") text += " · " + Loc.T("Camera.Virtual");
+            else if (Kind == "phone") text += " · " + Loc.T("Camera.Phone");
+            if (Width is int w && Height is int h) text += $" · {w}×{h}";
+            if (Working == false) text += " · " + Loc.T("Camera.NotWorking");
+            return text;
+        }
     }
 }

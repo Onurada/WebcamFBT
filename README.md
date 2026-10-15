@@ -10,7 +10,7 @@ Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both
 ## Getting started
 1. **Place the camera:** about 2–3 m away, at waist or chest height. Your **whole body**, head to toe, must be visible. Use good lighting: in a dark room the camera drops from 30 to 20 frames per second.
 2. Connect the Quest 3 to the PC (Steam Link / Air Link / Link cable) and start **SteamVR**.
-3. Open `app\WebcamFBT.exe` and press **Start**. The engine takes 5–10 s to start.
+3. Open `app\WebcamFBT.exe` and press **Start**. The engine starts in about 3 seconds.
 4. **Calibrate:** wearing the headset, stand in front of the camera and press **F8**. The hotkey also works while in a game.
    - After the first beep you have 3 seconds: **stand straight and look ahead**, arms at your sides.
    - At the second beep **hold still for 2 seconds**.
@@ -21,6 +21,11 @@ Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both
 
 > The calibration is saved and loaded automatically next time. **If you move the camera or recenter the Quest**, press F8 to redo it.
 > If you enabled new trackers (elbows, knees…), redo the in-game full body calibration too.
+
+## First launch and the notification area
+- **Setup wizard:** on first launch, 5 steps cover the language, the SteamVR driver, the camera, where to put it and calibration. Open it again with *General → Setup wizard…*.
+- **Camera names:** cameras are listed by name (e.g. *Microsoft LifeCam VX-1000*). **Virtual** cameras added by OBS or Meta Quest Link are marked, with a warning if one is picked; phone apps (DroidCam, Iriun) show as *phone*.
+- **Notification area (system tray):** minimizing sends the window to the notification area and tracking keeps running. The icon's menu offers Show, Calibrate, Pause and Exit, and hovering it shows the status. While the window is hidden, the calibration result and important warnings arrive as balloon notifications. Turn it off under *General*.
 
 ## More than one camera (optional)
 One camera is the default. **Extra camera 1 / 2** under *Camera and model* add up to two more (a phone works too, with DroidCam or Iriun).
