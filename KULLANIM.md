@@ -30,18 +30,19 @@ WebcamFBT sadece kaskın SteamVR'daki konumunu okur, bu yüzden SteamVR ile çal
 Uygulama bağlı kaskı tanır ve SteamVR göstergesinde adını gösterir (ör. *bağlı · Meta Quest 3*). Göstergenin üstüne gelince bağlantı yolu ve o kaskta merkezlemenin nasıl yapıldığı görünür. Quest 3 ve Steam Link ile denendi; diğer kasklar aynı yoldan çalışır ama henüz denenmedi.
 
 ## Başlarken
-1. **Kamerayı yerleştir:** Yaklaşık 2–3 m uzağa, bel ya da göğüs hizasına koy. Baştan ayağa **tüm vücudun** görünmeli. Ortam iyi aydınlatılmış olmalı; karanlıkta kamera saniyede 30 yerine 20 kare verir.
+1. **Kamerayı yerleştir:** Yaklaşık 2–3 m uzağa, bel ya da göğüs hizasına koy. En az **omuzlarından ayaklarına kadar** görünmelisin; kafan kadraj dışında kalabilir (kafa da görünürse biraz daha hassas olur). Sığmıyorsa kamerayı biraz aşağı eğ: ayakların kadrajda kalması kafadan daha önemli. Ortam iyi aydınlatılmış olmalı; karanlıkta kamera saniyede 30 yerine 20 kare verir.
 2. Kaskını PC'ye bağla (Quest için Link kablosu / Air Link / Steam Link / Virtual Desktop / ALVR) ve **SteamVR**'ı aç.
 3. `app\WebcamFBT.exe`'yi aç ve **Başlat**'a bas. Motor yaklaşık 3 saniyede açılır.
-4. **Kalibrasyon:** Kask takılıyken kameranın önünde dur ve **F8**'e bas. Bu kısayol oyundayken de çalışır.
-   - İlk bipten sonra 3 saniye içinde **dik dur, düz ileri bak**, kollar yanda.
-   - İkinci bipte **2 saniye kıpırdama**.
-   - Tiz bip: tamam. Kalın uzun bip: başarısız, tekrar F8'e bas.
+4. **Kalibrasyon (tuşa basmadan):** Kask takılıyken kameranın önünde **dik dur, düz ileri bak ve 2 saniye kıpırdama**, kollar yanda.
+   - Uygulama hareketsiz durduğunu görünce **kendiliğinden** kalibre eder: iki kısa bip = ölçüyor, kıpırdama; tiz bip = tamam.
+   - Kalın uzun bip: olmadı (ör. ölçerken hareket ettin). Tekrar hareketsiz durman yeter.
+   - Bu yalnızca kalibrasyon yokken olur; çalışan bir kalibrasyonu kendiliğinden değiştirmez.
+   - **Yeniden kalibre etmek için** iki elini (kumandalar ya da eller) **başının üstünde 2 saniye tut**. Bipten sonra kollarını indir, dik dur, ileri bak. **F8** de hâlâ çalışır.
 5. Oyundaki FBT kalibrasyonunu yap.
    - **VRChat:** T-pose ver, iki tetiğe bas.
    - **Vivecraft:** Önce *Playermodel Settings* altında model tipini *Split Arms* ya da *Split Arms/Legs* yap, sonra *Calibrate FBT…* çalıştır.
 
-> **Her oturumda F8 ile kalibre et.** Quest'in takip alanı oturumdan oturuma (ve kask uykuya girip uyandığında) değişebildiği için eski kalibrasyon kullanılmaz; kalibre edilene kadar tracker gönderilmez. Kamerayı oynatırsan ya da kaskta merkezleme yaparsan da F8.
+> **Her oturumda kalibrasyon gerekir**, ama artık tek yapman gereken kameranın önünde bir an hareketsiz durmak. Quest'in takip alanı oturumdan oturuma değişebildiği için eski kalibrasyon kullanılmaz ve SteamVR yeniden bağlanınca kalibrasyon sıfırlanır. Kamerayı oynatırsan ya da kaskta merkezleme yaparsan iki eli kaldır (ya da F8). Zemin yüksekliği her an doğrudan SteamVR'dan alınır.
 > Yeni tracker'ları (dirsek, diz…) açtıysan oyundaki FBT kalibrasyonunu da yenile.
 
 ## İlk açılış ve bildirim alanı
@@ -54,7 +55,7 @@ Varsayılan tek kameradır. *Kamera ve model* bölümündeki **Ek kamera 1 / 2**
 
 - **Ne kazandırır:** Her kamera kendi görüş ekseninde (derinlikte) zayıftır. İki kamera birbirine 60–90° açıyla durunca birinin zayıf olduğu ekseni diğeri iyi görür, sonuçlar buna göre ağırlıklı birleştirilir. Bir kameradan saklanan eklemi diğeri görebilir.
 - **Arkadan bakan kamera:** Sağı solu karıştırabileceği için, önden gören bir kamera varken birleştirmeye katılmaz.
-- **Kalibrasyon:** F8 tüm kameraları aynı anda kalibre eder. Her kamera seni baştan ayağa görmeli. Kalibre edilemeyen kamera uyarısı çıkarsa o kamerayı düzeltip tekrar F8'e bas.
+- **Kalibrasyon:** F8 tüm kameraları aynı anda kalibre eder. Her kamera seni en az omuzlardan ayaklara görmeli. Kalibre edilemeyen kamera uyarısı çıkarsa o kamerayı düzeltip tekrar F8'e bas.
 - **Performans:** Her kamera kendi modelini paralel çalıştırır. Bu bilgisayarda iki kamera full modelle kamera başına saniyede yaklaşık 25 kare işleyebiliyor.
 - Ek kamera açılamazsa motor onsuz devam eder.
 
@@ -113,7 +114,7 @@ Hatalara karşı önlemler:
 - **Ayar doğrulama:** Geçersiz değerler varsayılana döner ya da sınırlara çekilir. Bozuk `config.json` dosyası `config.json.broken-<tarih>` olarak saklanır, uygulama varsayılanlarla açılır.
 - **Anlaşılır hata mesajları:** Kamera açılmıyorsa, kamera başka bir programda açıksa, sürücü yüklü değilse ya da UDP portu meşgulse ne yapman gerektiği yazar ve iki kalın bip sesi duyulur.
 - **Sürücü sürüm kontrolü:** SteamVR eski bir WebcamFBT sürücüsü çalıştırıyorsa uyarır.
-- **Kaskta merkezleme:** SteamVR takip alanının değiştiğini bildirirse uygulama uyarır (en fazla 5 dakikada bir); kayık görünürse F8. Kalibrasyon kendiliğinden değiştirilmez: ilk sürümdeki otomatik düzeltme, kask uykudan uyandığında yanlış devreye girip vücudu kaydırdığı için kaldırıldı.
+- **Kaskta merkezleme:** SteamVR takip alanının değiştiğini bildirirse uygulama uyarır (en fazla 5 dakikada bir); kayık görünürse iki elini başının üstünde 2 saniye tut (ya da F8). Kalibrasyon kendiliğinden değiştirilmez: ilk sürümdeki otomatik düzeltme, kask uykudan uyandığında yanlış devreye girip vücudu kaydırdığı için kaldırıldı.
 
 ## Sınırlar (tek kamera)
 İkinci bir kamera eklemek (yukarıya bak) ilk iki maddeyi büyük ölçüde azaltır.

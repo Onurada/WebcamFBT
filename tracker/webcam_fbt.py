@@ -89,6 +89,19 @@ REQUIRED = {
 # HMD origin -> midpoint between the ears, in HMD local space (x right, y up, +z backwards)
 HMD_TO_EARS = np.array([0.0, -0.02, 0.09])
 
+# The head does not have to be in the picture: the body can hang from the headset by the shoulders.
+# Standing adults' shoulder height is about 0.874 of their eye height, and the shoulders' midpoint sits
+# under the ears; calibration measures the player's own offset whenever it sees the ears.
+SHOULDER_EYE_RATIO = 0.874
+HMD_TO_SHOULDERS_Z = 0.08
+HEAD = [L_EYE, R_EYE, L_EAR, R_EAR]
+BODY = [L_SH, R_SH, L_HIP, R_HIP, L_ANK, R_ANK]  # must be seen to calibrate (head optional)
+
+
+def default_shoulder_offset(eye_height):
+    """HMD origin -> shoulders' midpoint in HMD local space (looking ahead), from the eye height."""
+    return np.array([0.0, -(1.0 - SHOULDER_EYE_RATIO) * eye_height, HMD_TO_SHOULDERS_Z])
+
 
 
 DEFAULTS = {
@@ -110,6 +123,8 @@ DEFAULTS = {
     "udp_port": 39570,
     "language": None,  # None = follow the Windows display language
     "remember_calibration": False,  # a Quest's tracking space changes between sessions: calibrate each time
+    "auto_calibrate": True,  # calibrate by itself once the player stands still in view (only when not calibrated)
+    "gesture_calibrate": True,  # both hands above the head for 2 s recalibrates
     "high_priority": True,
     "preview_fps": 20,
     "hotkey_calibrate": "F8",
@@ -470,8 +485,9 @@ class Camera:
 
 
 class HmdPose:
-    def __init__(self, rot, pos, height, vel=None, ang_vel=None, t=0.0, std_rot=None, std_pos=None):
+    def __init__(self, rot, pos, height, vel=None, ang_vel=None, t=0.0, std_rot=None, std_pos=None, hands=None):
         self.rot, self.pos, self.height = rot, pos, height
+        self.hands = [] if hands is None else hands  # left/right controller (or hand) positions, raw space
         self.vel = np.zeros(3) if vel is None else vel
         self.ang_vel = np.zeros(3) if ang_vel is None else ang_vel
         self.t = t
@@ -620,7 +636,22 @@ class VRLink:
         sm = np.array([[sm[i][j] for j in range(4)] for i in range(3)])
         v, w = raw[0].vVelocity, raw[0].vAngularVelocity
         return HmdPose(m[:, :3], m[:, 3], sm[1][3], np.array([v[0], v[1], v[2]]), np.array([w[0], w[1], w[2]]),
-                       time.monotonic(), sm[:, :3], sm[:, 3])
+                       time.monotonic(), sm[:, :3], sm[:, 3], self._hands())
+
+    HAND_ROLES = (openvr.TrackedControllerRole_LeftHand, openvr.TrackedControllerRole_RightHand)
+
+    def _hands(self):
+        """Raw-space positions of the left and right hand controllers that are tracked right now."""
+        out = []
+        try:
+            for role in self.HAND_ROLES:
+                i = self.sys.getTrackedDeviceIndexForControllerRole(role)
+                if 0 < i < openvr.k_unMaxTrackedDeviceCount and self.raw_arr[i].bPoseIsValid:
+                    m = self.raw_arr[i].mDeviceToAbsoluteTracking
+                    out.append(np.array([m[0][3], m[1][3], m[2][3]]))
+        except Exception:
+            pass
+        return out
 
 
 class Sender:
@@ -638,6 +669,15 @@ class Sender:
 
 def beep(freq, ms):
     threading.Thread(target=winsound.Beep, args=(freq, ms), daemon=True).start()
+
+
+def beep_twice(freq):
+    """Two short beeps: an automatic calibration starts (hold still)."""
+    def run():
+        for _ in range(2):
+            winsound.Beep(freq, 90)
+            time.sleep(0.06)
+    threading.Thread(target=run, daemon=True).start()
 
 
 def beep_warning():
@@ -776,6 +816,8 @@ class Calibration:
 
     COUNTDOWN = 3.0
     COLLECT = 2.0
+    MAX_MOVE = 0.10  # m the headset may wander while samples are taken
+    MAX_TURN = 15.0  # degrees the headset may turn meanwhile
 
     def __init__(self, index=0, sound=True):
         self.index = index
@@ -784,38 +826,48 @@ class Calibration:
         self.from_file = False
         self.R = np.eye(3)  # camera space -> raw VR space
         self.scale = 1.0
-        self.floor = 0.0  # floor height in raw VR space
+        self.floor = 0.0  # floor height in raw VR space when calibrated (SteamVR's live floor is used if known)
+        self.shoulders = default_shoulder_offset(1.6)  # HMD -> shoulders' midpoint, HMD local space
+        self.head_anchor = True  # hang the body from the ears when they are seen (only if calibrated with them)
         self.phase = None
         self.t_phase = 0.0
+        self.countdown = self.COUNTDOWN
         self.samples = []
+        self.failure = None  # why the last calibration failed: "calib_failed" or "calib_moved"
 
-    def start(self, now):
+    def reset(self):
+        self.ready = self.from_file = False
+        self.phase = None
+
+    def start(self, now, countdown=None):
+        """countdown=0 starts taking samples at once (automatic calibration: the player already stands still)."""
+        self.countdown = self.COUNTDOWN if countdown is None else countdown
         self.phase, self.t_phase, self.samples = "countdown", now, []
         if self.sound:
             beep(660, 150)
 
     def remaining(self, now):
-        total = self.COUNTDOWN if self.phase == "countdown" else self.COLLECT
+        total = self.countdown if self.phase == "countdown" else self.COLLECT
         return max(0.0, total - (now - self.t_phase)) if self.phase else 0.0
 
     def update(self, now, P, vis, hmd):
         """Returns True/False when a calibration finishes (success/failure), otherwise None."""
         if self.phase == "countdown":
-            if now - self.t_phase >= self.COUNTDOWN:
-                self.phase, self.t_phase = "collect", now
-                if self.sound:
-                    beep(880, 150)
-            return None
+            if now - self.t_phase < self.countdown:
+                return None
+            self.phase, self.t_phase = "collect", now
+            if self.sound:
+                beep(880, 150)
         if self.phase != "collect":
             return None
-        key = [L_EYE, R_EYE, L_SH, R_SH, L_HIP, R_HIP, L_ANK, R_ANK]
-        if P is not None and hmd is not None and vis[key].min() > 0.5:
-            self.samples.append((P.copy(), hmd))
+        if P is not None and hmd is not None and vis[BODY].min() > 0.5:
+            self.samples.append((P.copy(), vis.copy(), hmd))
         if now - self.t_phase < self.COLLECT:
             return None
         self.phase = None
-        if len(self.samples) < 10:
-            log(T("calib_failed", i=self.index))
+        self.failure = "calib_failed" if len(self.samples) < 10 else ("calib_moved" if self._moved() else None)
+        if self.failure:
+            log(T(self.failure, i=self.index))
             if self.sound:
                 beep(300, 600)
             return False
@@ -824,15 +876,24 @@ class Calibration:
             beep(1200, 300)
         return True
 
+    def _moved(self):
+        """True if the player walked or turned while the samples were taken (the result would be off)."""
+        pos = np.array([h.pos for _, _, h in self.samples])
+        yaws = np.array([yaw_of(-h.rot[:, 2]) for _, _, h in self.samples])
+        turn = np.degrees(np.abs(np.angle(np.exp(1j * (yaws - yaws[0])))))
+        return bool(np.linalg.norm(pos - pos.mean(axis=0), axis=1).max() > self.MAX_MOVE or turn.max() > self.MAX_TURN)
+
     def _solve(self):
-        # 1) Camera tilt: the person stands upright, so ankles->ears (plumb line) must map to +Y.
-        ups = [(P[L_EAR] + P[R_EAR]) / 2 - (P[L_ANK] + P[R_ANK]) / 2 for P, _ in self.samples]
+        # 1) Camera tilt: the person stands upright, so ankles->shoulders (plumb line) must map to +Y.
+        ups = [(P[L_SH] + P[R_SH]) / 2 - (P[L_ANK] + P[R_ANK]) / 2 for P, _, _ in self.samples]
         r_tilt = rot_between(np.mean(ups, axis=0), np.array([0.0, 1.0, 0.0]))
+        # The head is optional: with it in the picture the eyes give the scale and the ears the anchor.
+        head = np.mean([vis[HEAD].min() > 0.5 for _, vis, _ in self.samples]) >= 0.8
 
         # 2) Camera yaw: body facing direction must match where the headset looks.
         sin_sum = cos_sum = 0.0
-        eye_heights, hmd_heights, floors = [], [], []
-        for P, hmd in self.samples:
+        eye_heights, shoulder_heights, hmd_heights, floors = [], [], [], []
+        for P, _, hmd in self.samples:
             Q = P @ r_tilt.T
             right = (Q[R_HIP] - Q[L_HIP]) + (Q[R_SH] - Q[L_SH])
             right[1] = 0
@@ -843,16 +904,35 @@ class Calibration:
             cos_sum += math.cos(d)
             ground = min(Q[i][1] for i in (L_HEEL, R_HEEL, L_TOE, R_TOE))
             eye_heights.append((Q[L_EYE][1] + Q[R_EYE][1]) / 2 - ground)
+            shoulder_heights.append((Q[L_SH][1] + Q[R_SH][1]) / 2 - ground)
             hmd_heights.append(hmd.height)
             floors.append(hmd.pos[1] - hmd.height)
         yaw = math.atan2(sin_sum, cos_sum)
+        eye_height = float(np.mean(hmd_heights))
 
         self.R = rot_y(yaw) @ r_tilt
-        self.scale = float(np.clip(np.mean(hmd_heights) / max(np.mean(eye_heights), 0.3), 0.6, 1.6))
+        if head:
+            scale = eye_height / max(np.mean(eye_heights), 0.3)
+        else:
+            scale = SHOULDER_EYE_RATIO * eye_height / max(np.mean(shoulder_heights), 0.25)
+        self.scale = float(np.clip(scale, 0.6, 1.6))
         self.floor = float(np.mean(floors))
+        self.head_anchor = bool(head)
+        if head:  # measure where this player's shoulders hang from the headset
+            M = (self.scale * self.R).T
+            offs = []
+            for P, _, hmd in self.samples:
+                ears = hmd.pos + hmd.rot @ HMD_TO_EARS
+                sh = ears + ((P[L_SH] + P[R_SH]) / 2 - (P[L_EAR] + P[R_EAR]) / 2) @ M
+                A = 0.5 * (hmd.rot + heading_rotation(hmd.rot))  # inverse of shoulder_anchor
+                offs.append(HMD_TO_EARS + np.linalg.solve(A, sh - ears))
+            self.shoulders = np.mean(offs, axis=0)
+        else:
+            self.shoulders = default_shoulder_offset(eye_height)
         self.ready = True
         self.from_file = False
-        log(T("calib_ok", i=self.index, yaw=math.degrees(yaw), scale=self.scale, floor=self.floor, n=len(self.samples)))
+        log(T("calib_ok", i=self.index, yaw=math.degrees(yaw), scale=self.scale, floor=self.floor, n=len(self.samples))
+            + ("" if head else " " + T("calib_no_head")))
 
     # The camera -> SteamVR space relation stays valid until the camera moves or the
     # headset's tracking space is reset, so it is kept between sessions, one entry per camera:
@@ -876,6 +956,7 @@ class Calibration:
         index = self.index if camera_index is None else camera_index
         cameras = self._read_file()
         cameras[str(index)] = {"R": self.R.tolist(), "scale": self.scale, "floor": self.floor, "headset": headset_name,
+                               "shoulders": self.shoulders.tolist(), "head_anchor": self.head_anchor,
                                "saved_at": time.strftime("%Y-%m-%d %H:%M:%S")}
         try:
             with open(CALIBRATION_FILE, "w", encoding="utf-8") as f:
@@ -893,6 +974,8 @@ class Calibration:
             self.R = np.array(entry["R"], dtype=float).reshape(3, 3)
             self.scale = float(entry["scale"])
             self.floor = float(entry["floor"])
+            self.shoulders = np.array(entry.get("shoulders", default_shoulder_offset(1.6)), dtype=float).reshape(3)
+            self.head_anchor = bool(entry.get("head_anchor", True))
         except (KeyError, TypeError, ValueError):
             return False
         self.ready = self.from_file = True
@@ -936,10 +1019,22 @@ class CalibrationSet:
     def remaining(self, now):
         return self.primary.remaining(now)
 
-    def start(self, now):
+    @property
+    def failure(self):
+        return self.primary.failure
+
+    def reset(self):
         for c in self.cals.values():
-            c.start(now)
-        beep(660, 150)
+            c.reset()
+
+    def start(self, now, auto=False):
+        """auto: the player already stands still (StillDetector), so samples are taken at once."""
+        for c in self.cals.values():
+            c.start(now, countdown=0.0 if auto else None)
+        if auto:
+            beep_twice(880)
+        else:
+            beep(660, 150)
 
     def update(self, now, inputs, hmd):
         """inputs: {camera index: (P, vis)} for cameras with a new frame. Returns {index: ok}
@@ -953,7 +1048,7 @@ class CalibrationSet:
             r = c.update(now, P, vis, hmd)
             if r is not None:
                 results[i] = r
-        if was == "countdown" and self.phase == "collect":
+        if was == "countdown" and self.phase == "collect" and self.primary.countdown > 0:
             beep(880, 150)
         if not results:
             return None
@@ -977,13 +1072,146 @@ class CalibrationSet:
         return [i for i, c in self.cals.items() if c.load(headset_name=headset_name)]
 
 
+def joint_angle(a, b, c):
+    """Angle at b (degrees) between b->a and b->c."""
+    u, v = a - b, c - b
+    nu, nv = np.linalg.norm(u), np.linalg.norm(v)
+    if nu < 1e-6 or nv < 1e-6:
+        return 0.0
+    return math.degrees(math.acos(float(np.clip(np.dot(u, v) / (nu * nv), -1.0, 1.0))))
+
+
+def standing_pose_problem(P, vis):
+    """None if the camera sees someone standing upright, facing it, shoulders to feet; else why not.
+    Camera space only (the camera's tilt is not known yet), so it uses angles between body parts."""
+    if P is None or vis[BODY + [L_KNEE, R_KNEE]].min() < 0.6:
+        return "not_seen"
+    for hip, knee, ank in ((L_HIP, L_KNEE, L_ANK), (R_HIP, R_KNEE, R_ANK)):
+        if joint_angle(P[hip], P[knee], P[ank]) < 160:
+            return "knees_bent"
+    sh, hip, ank = [(P[a] + P[b]) / 2 for a, b in ((L_SH, R_SH), (L_HIP, R_HIP), (L_ANK, R_ANK))]
+    if 180 - joint_angle(sh, hip, ank) > 15:
+        return "bent"
+    up = norm(sh - ank)
+    right = (P[R_HIP] - P[L_HIP]) + (P[R_SH] - P[L_SH])
+    fwd = np.cross(up, right)
+    if np.linalg.norm(fwd) < 1e-6 or norm(fwd)[2] < 0.5:  # +z points at the camera
+        return "not_facing"
+    if min(vis[NOSE], vis[L_EAR], vis[R_EAR]) > 0.6:  # head seen: it must look the way the body faces
+        look = P[NOSE] - (P[L_EAR] + P[R_EAR]) / 2
+        look = look - np.dot(look, up) * up
+        if np.linalg.norm(look) > 1e-6 and joint_angle(look, np.zeros(3), fwd) > 25:
+            return "head_turned"
+    return None
+
+
+class StillDetector:
+    """Notices the player standing upright and still in front of the camera with the headset level:
+    the moment to calibrate without pressing a key. Anything off restarts the wait."""
+
+    HOLD = 1.5  # s
+    MOVE = 0.05  # m (headset) / m in MediaPipe units (joints)
+    TURN = 8.0  # degrees
+    MAX_PITCH = 25.0
+
+    def __init__(self):
+        self.since = None
+        self.ref = None
+
+    def reset(self):
+        self.since = self.ref = None
+
+    def update(self, now, P, vis, hmd):
+        """True once the player has held still long enough."""
+        if hmd is None or standing_pose_problem(P, vis) is not None:
+            self.reset()
+            return False
+        fwd = -hmd.rot[:, 2]
+        if abs(math.degrees(math.asin(float(np.clip(fwd[1], -1, 1))))) > self.MAX_PITCH:
+            self.reset()
+            return False
+        joints = P[[L_SH, R_SH, L_KNEE, R_KNEE, L_ANK, R_ANK]]
+        key = (hmd.pos.copy(), yaw_of(fwd), joints.copy())
+        if self.ref is None or self._moved(self.ref, key):
+            self.ref, self.since = key, now
+        return now - self.since >= self.HOLD
+
+    def _moved(self, a, b):
+        turn = abs(math.degrees(math.atan2(math.sin(a[1] - b[1]), math.cos(a[1] - b[1]))))
+        return (np.linalg.norm(a[0] - b[0]) > self.MOVE or turn > self.TURN
+                or np.linalg.norm(a[2] - b[2], axis=1).max() > self.MOVE)
+
+
+class HandsUp:
+    """Both hands (controllers or tracked hands) held above the head for HOLD seconds: recalibrate
+    without the keyboard. Fires once; the hands must come down before it can fire again."""
+
+    HOLD = 2.0
+    ABOVE = 0.15  # m above the headset
+
+    def __init__(self):
+        self.since = None
+        self.armed = True
+
+    def update(self, now, hmd):
+        up = hmd is not None and len(hmd.hands) >= 2 and all(h[1] > hmd.pos[1] + self.ABOVE for h in hmd.hands)
+        if not up:
+            self.since, self.armed = None, True
+            return False
+        if self.since is None:
+            self.since = now
+        if self.armed and now - self.since >= self.HOLD:
+            self.armed = False
+            return True
+        return False
+
+
 # --------------------------------------------------------------------------- poses
 
-def camera_points(P, hmd, cal):
-    """One camera's landmarks (camera space, y up) in raw VR space, hung from the headset."""
-    ears = (P[L_EAR] + P[R_EAR]) / 2
-    anchor = hmd.pos + hmd.rot @ HMD_TO_EARS
-    return anchor + (P - ears) @ (cal.scale * cal.R).T
+def heading_rotation(rot):
+    """The headset's rotation with pitch and roll removed (yaw only)."""
+    f = -rot[:, 2].copy()
+    if math.hypot(f[0], f[2]) < 1e-3:  # looking straight down/up: the head's top points the way it faces
+        f = rot[:, 1] * (1.0 if f[1] < 0 else -1.0)
+    f[1] = 0.0
+    back = -norm(f)
+    up = np.array([0.0, 1.0, 0.0])
+    return np.column_stack([np.cross(up, back), up, back])
+
+
+def shoulder_anchor(hmd, offset):
+    """Where the shoulders' midpoint hangs from the headset (raw space).
+
+    The ears are rigid on the head; below them the neck bends partly at the skull and partly near the
+    shoulders, so the ears->shoulders offset follows half of the head's pitch and roll (and all of its
+    yaw, which turns about the spine). That halves the worst error of either extreme when looking down."""
+    ears = hmd.pos + hmd.rot @ HMD_TO_EARS
+    v = np.asarray(offset, float) - HMD_TO_EARS  # ears -> shoulders, head level
+    return ears + 0.5 * (hmd.rot @ v) + 0.5 * (heading_rotation(hmd.rot) @ v)
+
+
+def head_weight(vis):
+    """0..1: how much to trust the ears over the shoulders as the anchor (ears barely seen -> 0)."""
+    if vis is None:
+        return 1.0
+    return float(np.clip((min(vis[L_EAR], vis[R_EAR]) - 0.5) / 0.3, 0.0, 1.0))
+
+
+def camera_points(P, hmd, cal, vis=None):
+    """One camera's landmarks (camera space, y up) in raw VR space, hung from the headset.
+
+    The ears are fixed to the head, so they are the best anchor when the camera sees them. With the
+    head out of the picture the shoulders' midpoint is hung from the headset instead (its offset was
+    measured at calibration, or estimated from the eye height when the head was not seen then either)."""
+    M = (cal.scale * cal.R).T
+    shoulders = shoulder_anchor(hmd, cal.shoulders) - ((P[L_SH] + P[R_SH]) / 2) @ M
+    wh = head_weight(vis) if cal.head_anchor else 0.0
+    if wh > 0.0:
+        ears = hmd.pos + hmd.rot @ HMD_TO_EARS - ((P[L_EAR] + P[R_EAR]) / 2) @ M
+        shift = wh * ears + (1.0 - wh) * shoulders
+    else:
+        shift = shoulders
+    return P @ M + shift
 
 
 DEPTH_NOISE = 3.0  # a single webcam's error along its viewing axis is about 3x its sideways error
@@ -1068,9 +1296,15 @@ def build_poses(W, vis, floor, cfg, enabled, last, feet=None, now=0.0):
     return out
 
 
+def live_floor(hmd, fallback):
+    """Floor height in raw VR space straight from SteamVR (raw and standing space differ only by a
+    yaw and an offset), so the floor never depends on an old calibration."""
+    return float(hmd.pos[1] - hmd.height) if hmd is not None else fallback
+
+
 def compute_poses(P, vis, hmd, cal, cfg, enabled, last, feet=None, now=0.0):
     """Single camera: P is 33x3 landmarks in camera space (y up). Returns [(id, pos, quat)]."""
-    return build_poses(camera_points(P, hmd, cal), vis, cal.floor, cfg, enabled, last, feet, now)
+    return build_poses(camera_points(P, hmd, cal, vis), vis, live_floor(hmd, cal.floor), cfg, enabled, last, feet, now)
 
 
 # --------------------------------------------------------------------------- ui
@@ -1256,7 +1490,7 @@ def frame_brightness(frame):
 
 def camera_tilt_deg(P):
     """How far a camera looks down (+) from level, from the standing player's plumb line."""
-    up = (P[L_EAR] + P[R_EAR]) / 2 - (P[L_ANK] + P[R_ANK]) / 2
+    up = (P[L_SH] + P[R_SH]) / 2 - (P[L_ANK] + P[R_ANK]) / 2
     return math.degrees(math.atan2(up[2], up[1]))
 
 
@@ -1312,7 +1546,7 @@ class Assistant:
                 pts = [(l.x, l.y) for l in res.landmarks]
                 eyes = min(pts[i][1] for i in (L_EYE, R_EYE))
                 heels = max(pts[i][1] for i in (L_HEEL, R_HEEL))
-                Wc = camera_points(res.P, hmd, cal)
+                Wc = camera_points(res.P, hmd, cal, res.vis)
                 player = hmd.to_standing((Wc[L_HIP] + Wc[R_HIP]) / 2)
                 fwd = hmd.dir_to_standing(-cal.R[:, 2])
                 est = placement.estimate_camera((fwd[0], fwd[2]), (player[0], player[2]), heels - eyes, eye, self.hfov)
@@ -1355,7 +1589,8 @@ class Assistant:
 # --------------------------------------------------------------------------- main
 
 LIVE_SETTINGS = {"filter_min_cutoff", "filter_beta", "depth_smoothing", "min_visibility", "floor_lock", "foot_lock",
-                 "ankle_height", "mirror_preview", "remember_calibration", "preview_fps", "language", "camera_hfov"}
+                 "ankle_height", "mirror_preview", "remember_calibration", "preview_fps", "language", "camera_hfov",
+                 "auto_calibrate", "gesture_calibrate"}
 
 
 class State:
@@ -1585,6 +1820,8 @@ def run(args, cfg, ipc):
     for action, key in hotkeys.failed:
         log(T("hotkey_failed", key=key))
     seen = {w.index: 0 for w in workers}
+    still, hands = StillDetector(), HandsUp()
+    auto_running, auto_wait_until = False, 0.0
     last_status = last_preview = last_assistant = last_vr_poll = 0.0
     last_space_warning = -1e9
     hmd = None
@@ -1633,12 +1870,17 @@ def run(args, cfg, ipc):
             if vr.just_connected:
                 vr.just_connected = False
                 st.headset_name = vr.headset["name"]
+                if cal.ready and cfg["auto_calibrate"]:
+                    # SteamVR was restarted: its tracking space may have moved, and recalibrating
+                    # costs the player nothing more than standing still for a moment.
+                    cal.reset()
+                    log(T("calib_reset_vr"))
                 if cfg["remember_calibration"] and not cal.ready:
                     loaded = cal.load(st.headset_name)
                     if loaded:
                         log(T("calib_loaded", cams=", ".join(map(str, loaded))))
                 if not cal.ready:
-                    log(T("calib_needed"))
+                    log(T("calib_needed_auto" if cfg["auto_calibrate"] else "calib_needed"))
                     beep(500, 200)
             if vr.space_event:
                 vr.space_event = False
@@ -1648,8 +1890,13 @@ def run(args, cfg, ipc):
                     log(T("recenter_maybe"))
                     if ipc:
                         ipc.emit(type="recenter", corrected=False)
+            if hands.update(now, hmd) and cfg["gesture_calibrate"] and cal.phase is None:
+                log(T("calib_gesture"))
+                auto_running = False
+                cal.start(now)
             for action in hotkeys.pressed():
                 if action == "calibrate":
+                    auto_running = False
                     cal.start(now)
                 elif action == "pause":
                     st.toggle_pause()
@@ -1660,13 +1907,25 @@ def run(args, cfg, ipc):
                     last_status = now
                     emit_status(ipc, args, vr, st, driver, person=False, hmd=hmd is not None, sent=0, now=now)
                 continue
+            # Hands-free calibration: only while not calibrated, never over a working calibration.
+            main = new.get(workers[0].index)
+            if cfg["auto_calibrate"] and not cal.ready and cal.phase is None and main is not None:
+                if now >= auto_wait_until and still.update(now, main.P, main.vis, hmd):
+                    still.reset()
+                    log(T("calib_auto"))
+                    auto_running = True
+                    cal.start(now, auto=True)
             results = cal.update(now, {i: (r.P, r.vis) for i, r in new.items()}, hmd)
             if results:
-                if any(results.values()):
+                ok = any(results.values())
+                if ok:
                     st.save_calibration()
+                elif auto_running:
+                    auto_wait_until = now + 3.0
                 if ipc:
-                    ipc.emit(type="calibration", ok=any(results.values()), scale=cal.scale,
-                             cameras={str(i): ok for i, ok in results.items()})
+                    ipc.emit(type="calibration", ok=ok, scale=cal.scale, auto=auto_running,
+                             reason=None if ok else cal.failure, cameras={str(i): r for i, r in results.items()})
+                auto_running = False
 
             # Fuse the latest view of every calibrated camera that is still fresh.
             latest = {w.index: w.latest()[0] for w in workers}
@@ -1675,12 +1934,12 @@ def run(args, cfg, ipc):
                 for i, r in latest.items():
                     c = cal.cals[i]
                     if c.ready and r is not None and r.P is not None and now - r.stamp < FRESH:
-                        views.append((camera_points(r.P, hmd, c), r.vis, c.R[:, 2]))
+                        views.append((camera_points(r.P, hmd, c, r.vis), r.vis, c.R[:, 2]))
                         newest = max(newest, r.stamp)
             sent = 0
             if views and not st.paused:
                 W, vis = fuse_views(views, hmd)
-                poses = build_poses(W, vis, cal.floor, cfg, st.enabled, st.last_poses, st.feet, newest)
+                poses = build_poses(W, vis, live_floor(hmd, cal.floor), cfg, st.enabled, st.last_poses, st.feet, newest)
                 if poses:
                     sender.send(poses)
                     sent = len(poses)

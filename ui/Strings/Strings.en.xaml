@@ -46,13 +46,17 @@
     <sys:String x:Key="S.Overlay.OkTitle">Calibration done ✓</sys:String>
     <sys:String x:Key="S.Overlay.OkSub">Now run the full body calibration in your game</sys:String>
     <sys:String x:Key="S.Overlay.FailTitle">Calibration failed</sys:String>
-    <sys:String x:Key="S.Overlay.FailSub">Wear the headset and make sure your whole body is visible, head to toe</sys:String>
+    <sys:String x:Key="S.Overlay.FailSub">Wear the headset and make sure you are visible at least from the shoulders to the feet</sys:String>
 
     <!-- General -->
     <sys:String x:Key="S.General.Title">General</sys:String>
     <sys:String x:Key="S.General.Language">Language</sys:String>
     <sys:String x:Key="S.General.AutoStart">Start the engine when the app opens</sys:String>
     <sys:String x:Key="S.General.RememberCalib">Keep the calibration for next time (same headset, camera not moved; not recommended)</sys:String>
+    <sys:String x:Key="S.General.AutoCalib">Calibrate automatically when I stand still in front of the camera (only while not calibrated)</sys:String>
+    <sys:String x:Key="S.General.GestureCalib">Recalibrate when I hold both hands above my head for 2 seconds</sys:String>
+    <sys:String x:Key="S.Overlay.NeedCalibAutoSub">Wearing the headset, stand straight in front of the camera, look ahead and hold still for 2 s:&#x0a;it calibrates by itself (or press {0}). Shoulders to feet must be in view.</sys:String>
+    <sys:String x:Key="S.Overlay.FailMovedSub">You moved while it measured. Stand straight, look ahead and hold still for 2 seconds</sys:String>
     <sys:String x:Key="S.General.ShowPreview">Show camera preview</sys:String>
     <sys:String x:Key="S.General.Hint">The preview pauses by itself while the window is minimized, leaving the CPU to your game.</sys:String>
 
@@ -63,7 +67,7 @@
     <sys:String x:Key="S.Control.Calibrate">Calibrate ({0})</sys:String>
     <sys:String x:Key="S.Control.Pause">Pause ({0})</sys:String>
     <sys:String x:Key="S.Control.NoVr">Test without SteamVR (preview only)</sys:String>
-    <sys:String x:Key="S.Control.Hint">Calibration: wear the headset, stand straight in front of the camera and look ahead. After the first beep wait 3 s, at the second beep hold still for 2 s.</sys:String>
+    <sys:String x:Key="S.Control.Hint">Calibration happens by itself: wear the headset, stand straight in front of the camera, look ahead and hold still for 2 s (two short beeps, then a high one). To redo it, hold both hands above your head for 2 s or press the key. Shoulders to feet must be in view; the head may be out of the picture.</sys:String>
 
     <!-- Fine tuning -->
     <sys:String x:Key="S.Fine.Title">Fine tuning</sys:String>
@@ -157,7 +161,7 @@
     <sys:String x:Key="S.Vr.PortBusy">port in use</sys:String>
     <sys:String x:Key="S.Vr.DriverOutdated">old driver (restart SteamVR)</sys:String>
     <sys:String x:Key="S.Overlay.RecenterTitle">Tracking space changed</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterMaybe">If the trackers look off, recalibrate with {0}.</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterMaybe">If the trackers look off, hold both hands above your head for 2 s (or press {0}) to recalibrate.</sys:String>
     <sys:String x:Key="S.Calib.Check">check ({0})</sys:String>
     <sys:String x:Key="S.General.OpenLogs">Open log folder</sys:String>
     <sys:String x:Key="S.General.HotkeyCalibrate">Calibrate hotkey</sys:String>
@@ -207,7 +211,8 @@
     <sys:String x:Key="S.Spot.spot_no_person">Nobody in view: step in front of the camera, head to toe.</sys:String>
     <sys:String x:Key="S.Spot.spot_no_image">No image from this camera.</sys:String>
     <sys:String x:Key="S.Spot.spot_feet_cut">Your feet are cut off: move the camera back or tilt it down a little.</sys:String>
-    <sys:String x:Key="S.Spot.spot_head_cut">Your head is cut off: move the camera back or tilt it up a little.</sys:String>
+    <sys:String x:Key="S.Spot.spot_head_cut">Your head is out of the picture. That works (the body hangs from the headset by the shoulders); with the head in view it is a little more precise.</sys:String>
+    <sys:String x:Key="S.Spot.spot_shoulders_cut">Your shoulders are cut off: move the camera back or tilt it up a little. At least shoulders to feet must be in view.</sys:String>
     <sys:String x:Key="S.Spot.spot_too_close">Too close: move the camera back a bit so you have room to move.</sys:String>
     <sys:String x:Key="S.Spot.spot_too_far">Too far: bring the camera closer for more precise tracking.</sys:String>
     <sys:String x:Key="S.Spot.spot_off_center">You are at the edge of the picture: turn the camera towards you.</sys:String>
@@ -255,7 +260,7 @@
     <sys:String x:Key="S.Wizard.PlacementTitle">Place the camera</sys:String>
     <sys:String x:Key="S.Wizard.PlacementText">• Put the camera in front of the play area, about 2–3 m away.&#x0a;• At waist height (~1 m off the floor), looking straight ahead.&#x0a;• Your whole body must be visible head to toe, feet included.&#x0a;• Keep the room well lit; in the dark the camera slows down.&#x0a;&#x0a;If unsure, once the engine runs, the Setup assistant under Camera and model shows on a map where to put the camera, or scores the spot you picked.</sys:String>
     <sys:String x:Key="S.Wizard.CalibrationTitle">Calibration and games</sys:String>
-    <sys:String x:Key="S.Wizard.CalibrationText">1. Start the engine, connect your headset to the PC and start SteamVR.&#x0a;2. Wearing the headset, stand in front of the camera and press {0}. After the first beep stand straight and look ahead; at the second beep hold still for 2 seconds. High beep: done.&#x0a;3. Run your game's full body calibration:&#x0a;   • VRChat: T-pose, then pull both triggers.&#x0a;   • Vivecraft: set the model type to Split Arms/Legs in Playermodel Settings, then Calibrate FBT.&#x0a;&#x0a;Calibrate with {0} every session (and after recentering the headset or moving the camera). No trackers are sent until you do.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Start the engine, connect your headset to the PC and start SteamVR.&#x0a;2. Wearing the headset, stand in front of the camera, look ahead and hold still for 2 seconds. It calibrates by itself: two short beeps, then a high beep when done. Shoulders to feet must be in view; the head may be out of the picture.&#x0a;3. Run your game's full body calibration:&#x0a;   • VRChat: T-pose, then pull both triggers.&#x0a;   • Vivecraft: set the model type to Split Arms/Legs in Playermodel Settings, then Calibrate FBT.&#x0a;&#x0a;To recalibrate (after recentering the headset or moving the camera) hold both hands above your head for 2 seconds, or press {0}.</sys:String>
     <sys:String x:Key="S.Vr.ConnectedTo">connected · {0}</sys:String>
     <sys:String x:Key="S.Vr.Tooltip">{0} · {1}&#x0a;Recenter: {2}</sys:String>
     <sys:String x:Key="S.Conn.meta_link">Meta Horizon Link (cable or Air Link)</sys:String>

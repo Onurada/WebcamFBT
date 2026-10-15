@@ -25,8 +25,28 @@ MESSAGES = {
     "vr_closed": {"tr": "SteamVR kapandı", "en": "SteamVR closed"},
     "vr_error": {"tr": "SteamVR hatası: {err}", "en": "SteamVR error: {err}"},
     "calib_failed": {
-        "tr": 'Kamera {i}: kalibrasyon başarısız, vücut veya kask yeterince görülmedi',
-        "en": 'Camera {i}: calibration failed, the body or the headset was not seen well enough',
+        "tr": 'Kamera {i}: kalibrasyon başarısız, omuzlardan ayaklara vücut veya kask yeterince görülmedi',
+        "en": 'Camera {i}: calibration failed, the body (shoulders to feet) or the headset was not seen well enough',
+    },
+    "calib_moved": {
+        "tr": 'Kamera {i}: kalibrasyon iptal, ölçüm sırasında yürüdün ya da döndün. Önceki kalibrasyon (varsa) korunuyor.',
+        "en": 'Camera {i}: calibration discarded, you walked or turned while it measured. The previous calibration (if any) is kept.',
+    },
+    "calib_no_head": {
+        "tr": "(kafa görüntüde değildi: vücut omuzlardan kaska bağlandı)",
+        "en": "(head not in the picture: the body hangs from the headset by the shoulders)",
+    },
+    "calib_auto": {
+        "tr": "Dik ve hareketsiz durduğun görüldü: otomatik kalibrasyon, 2 saniye kıpırdama...",
+        "en": "Standing still detected: calibrating automatically, hold still for 2 seconds...",
+    },
+    "calib_gesture": {
+        "tr": "İki el yukarıda: kalibrasyon başlıyor. Kollarını indir, dik dur ve ileri bak.",
+        "en": "Both hands up: calibration starts. Lower your arms, stand straight and look ahead.",
+    },
+    "calib_reset_vr": {
+        "tr": "SteamVR yeniden bağlandı, takip alanı değişmiş olabilir: kalibrasyon sıfırlandı.",
+        "en": "SteamVR reconnected and its tracking space may have changed: calibration cleared.",
     },
     "calib_ok": {
         "tr": 'Kamera {i}: kalibrasyon tamam (yön {yaw:.1f}°, ölçek {scale:.2f}, zemin {floor:.2f} m, {n} örnek)',
@@ -88,13 +108,21 @@ MESSAGES = {
               "SteamVR; if that does not help, press 'Install / repair' while SteamVR is closed.",
     },
     "driver_ok": {"tr": "SteamVR sürücüsü yeniden veri alıyor.", "en": "The SteamVR driver is receiving data again."},
+    "calib_needed_auto": {
+        "tr": "Kalibrasyon gerekli: kask takılıyken kameranın önünde dik dur, ileri bak ve 2 saniye kıpırdama; "
+              "kendiliğinden kalibre olur (ya da {cal}). Kalibre edilene kadar tracker gönderilmez.",
+        "en": "Calibration needed: wearing the headset, stand straight in front of the camera, look ahead and hold "
+              "still for 2 seconds; it calibrates by itself (or press {cal}). No trackers are sent until then.",
+    },
     "calib_needed": {
         "tr": "Kalibrasyon gerekli: kask takılıyken kameranın önünde dik dur ve {cal} tuşuna bas. Kalibre edilene kadar tracker gönderilmez.",
         "en": "Calibration needed: wearing the headset, stand straight in front of the camera and press {cal}. No trackers are sent until then.",
     },
     "recenter_maybe": {
-        "tr": "SteamVR takip alanının değiştiğini bildirdi. Tracker'lar kayık görünürse {cal} ile yeniden kalibre et.",
-        "en": "SteamVR reported a tracking space change. If the trackers look off, recalibrate with {cal}.",
+        "tr": "SteamVR takip alanının değiştiğini bildirdi. Tracker'lar kayık görünürse iki elini başının üstünde "
+              "2 saniye tut (ya da {cal}) ve yeniden kalibre et.",
+        "en": "SteamVR reported a tracking space change. If the trackers look off, hold both hands above your head "
+              "for 2 seconds (or press {cal}) to recalibrate.",
     },
     "engine_started": {
         "tr": "Motor başladı: kamera {cam}, model {model}",

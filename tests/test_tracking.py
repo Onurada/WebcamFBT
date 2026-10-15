@@ -30,6 +30,7 @@ def at(r, u, f=0.0):
 
 def skeleton():
     W = np.zeros((33, 3))
+    W[w.NOSE] = at(0.0, 1.62, 0.11)
     W[w.L_EYE], W[w.R_EYE] = at(-0.03, 1.65, 0.08), at(0.03, 1.65, 0.08)
     W[w.L_EAR], W[w.R_EAR] = at(-0.07, 1.63), at(0.07, 1.63)
     W[w.L_SH], W[w.R_SH] = at(-0.18, 1.42), at(0.18, 1.42)
@@ -61,6 +62,26 @@ def calibrated(P, hmd):
         cal.update(0.05 * i, P, np.ones(33), hmd)
     assert cal.update(5.0, P, np.ones(33), hmd) is True
     return cal
+
+
+def calibrated_with(P, vis, hmd):
+    cal = w.Calibration(sound=False)
+    cal.phase, cal.t_phase = "collect", 0.0
+    for i in range(30):
+        cal.update(0.05 * i, P, vis, hmd)
+    assert cal.update(5.0, P, vis, hmd) is True
+    return cal
+
+
+def without_head(P, rng=None):
+    """MediaPipe's view with the head out of the picture: head landmarks guessed badly, low visibility."""
+    P = P.copy()
+    rng = rng or np.random.default_rng(0)
+    head = [w.NOSE, w.L_EYE, w.R_EYE, w.L_EAR, w.R_EAR]
+    P[head] += rng.normal(0, 0.12, (len(head), 3))
+    vis = np.ones(33)
+    vis[head] = 0.1
+    return P, vis
 
 
 def cfg(**over):
@@ -327,6 +348,158 @@ def test_camera_recovers_from_a_hanging_read():
         cam.running = False
     finally:
         w.Camera._open, w.Camera.STALL_AFTER = original_open, original_stall
+
+
+def tracker_errors(W, P, vis, hmd, cal):
+    enabled = {k: True for k in w.TRACKERS}
+    poses = w.compute_poses(P, vis, hmd, cal, cfg(foot_lock=False), enabled, {})
+    got = {w.TRACKERS[tid]: pos for tid, pos, _ in poses}
+    return {"hip": np.linalg.norm(got["hip"] - (W[w.L_HIP] + W[w.R_HIP]) / 2),
+            "foot": np.linalg.norm(got["left_foot"] - W[w.L_ANK])}
+
+
+def test_calibration_without_the_head():
+    """The head may be out of the picture: shoulders to feet are enough to calibrate and track."""
+    W = skeleton()
+    hmd = headset(W)
+    P, vis = without_head(to_camera(W))
+    cal = calibrated_with(P, vis, hmd)
+    assert not cal.head_anchor
+    err = tracker_errors(W, P, vis, hmd, cal)
+    assert err["hip"] < 0.05 and err["foot"] < 0.05, err
+
+
+def test_head_leaving_the_picture_does_not_move_the_body():
+    """Calibrated with the head in view, the body must not jump when the head leaves the picture."""
+    W = skeleton()
+    hmd = headset(W)
+    P = to_camera(W)
+    cal = calibrated_with(P, np.ones(33), hmd)
+    assert cal.head_anchor
+    with_head = w.camera_points(P, hmd, cal, np.ones(33))
+    P2, vis2 = without_head(P)
+    no_head = w.camera_points(P2, hmd, cal, vis2)
+    body = [w.L_HIP, w.R_HIP, w.L_ANK, w.R_ANK, w.L_SH, w.R_SH]
+    assert np.abs(with_head[body] - no_head[body]).max() < 0.01
+
+
+def test_turning_the_head_does_not_move_the_body():
+    """Head out of the picture, player turns only the head 60°: the body stays where it is."""
+    W = skeleton()
+    hmd = headset(W)
+    P, vis = without_head(to_camera(W))
+    cal = calibrated_with(P, vis, hmd)
+    ears = (W[w.L_EAR] + W[w.R_EAR]) / 2
+    turn = w.rot_y(math.radians(60))
+    turned = w.HmdPose(turn @ hmd.rot, ears + turn @ (hmd.pos - ears), hmd.height)
+    err = tracker_errors(W, P, vis, turned, cal)
+    assert err["hip"] < 0.05 and err["foot"] < 0.05, err
+
+
+FRONT_CAM = np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]])  # sees the player from the front
+
+
+def test_still_detector():
+    W = skeleton()
+    hmd = headset(W)
+    P, vis = camera_view(W, FRONT_CAM), np.ones(33)
+    assert w.standing_pose_problem(P, vis) is None
+    d = w.StillDetector()
+    fired = [d.update(0.1 * i, P, vis, hmd) for i in range(20)]
+    assert not any(fired[:15]) and fired[16], fired  # after 1.5 s of standing still
+
+    d = w.StillDetector()  # walking: the headset keeps moving
+    assert not any(d.update(0.1 * i, P, vis, w.HmdPose(hmd.rot, hmd.pos + FWD * 0.06 * i, hmd.height))
+                   for i in range(40))
+
+    bent = W.copy()  # knees bent (sitting down, crouching)
+    bent[[w.L_KNEE, w.R_KNEE]] += FWD * 0.2
+    assert w.standing_pose_problem(camera_view(bent, FRONT_CAM), vis) == "knees_bent"
+
+    turned = W.copy()  # face visible and looking 60° to the side of where the body faces
+    ears = (W[w.L_EAR] + W[w.R_EAR]) / 2
+    turned[w.NOSE] = ears + w.rot_y(math.radians(60)) @ (W[w.NOSE] - ears)
+    assert w.standing_pose_problem(camera_view(turned, FRONT_CAM), vis) == "head_turned"
+
+    back = w.rot_y(math.pi) @ FRONT_CAM  # camera behind the player
+    assert w.standing_pose_problem(camera_view(W, back), vis) == "not_facing"
+
+    feet_out = vis.copy()
+    feet_out[[w.L_ANK, w.R_ANK]] = 0.1
+    assert w.standing_pose_problem(P, feet_out) == "not_seen"
+    P2, vis2 = without_head(P)  # head out of the picture is fine
+    assert w.standing_pose_problem(P2, vis2) is None
+
+    looking_down = w.HmdPose(w.rot_y(0) @ hmd.rot @ w.rot_between(np.array([0, 0, -1.0]),
+                                                                  np.array([0, -0.7, -0.7])), hmd.pos, hmd.height)
+    d = w.StillDetector()
+    assert not any(d.update(0.1 * i, P, vis, looking_down) for i in range(30))
+
+
+def test_moving_during_calibration_keeps_the_old_one():
+    W = skeleton()
+    hmd = headset(W)
+    P = to_camera(W)
+    cal = calibrated_with(P, np.ones(33), hmd)
+    R_before = cal.R.copy()
+    cal.start(10.0, countdown=0.0)
+    for i in range(30):
+        moved = w.HmdPose(hmd.rot, hmd.pos + FWD * 0.02 * i, hmd.height)
+        cal.update(10.0 + 0.05 * i, P, np.ones(33), moved)
+    assert cal.update(13.0, P, np.ones(33), hmd) is False
+    assert cal.failure == "calib_moved" and cal.ready and np.allclose(cal.R, R_before)
+
+
+def test_automatic_calibration_takes_samples_at_once():
+    W = skeleton()
+    hmd = headset(W)
+    P = to_camera(W)
+    cs = w.CalibrationSet([0])
+    cs.start(0.0, auto=True)
+    results = None
+    for i in range(1, 50):
+        results = cs.update(0.05 * i, {0: (P, np.ones(33))}, hmd) or results
+        if results:
+            assert 0.05 * i < 2.2  # no 3 s countdown
+            break
+    assert results == {0: True} and cs.ready
+
+
+def test_hands_up_gesture():
+    W = skeleton()
+    hmd = headset(W)
+    up = [hmd.pos + UP * 0.3 - RIGHT * 0.2, hmd.pos + UP * 0.3 + RIGHT * 0.2]
+    down = [hmd.pos - UP * 0.6, hmd.pos - UP * 0.6]
+    pose = lambda hands: w.HmdPose(hmd.rot, hmd.pos, hmd.height, hands=hands)
+    g = w.HandsUp()
+    fired = [g.update(0.1 * i, pose(up)) for i in range(40)]
+    assert fired.count(True) == 1 and fired.index(True) >= 20  # once, after 2 s
+    assert not g.update(4.1, pose(up[:1]))  # one hand only: no
+    assert not g.update(4.2, pose(down))
+    assert any(g.update(5.0 + 0.1 * i, pose(up)) for i in range(25))  # hands came down: can fire again
+    assert not any(w.HandsUp().update(0.1 * i, pose([up[0], down[1]])) for i in range(40))
+
+
+def test_floor_comes_from_steamvr():
+    W = skeleton()
+    hmd = headset(W)
+    assert abs(w.live_floor(hmd, 99.0) - FLOOR) < 1e-9
+    assert w.live_floor(None, -0.5) == -0.5
+
+
+def test_spot_check_head_out_of_picture():
+    import placement
+    pts = np.zeros((33, 2))
+    pts[:, 0] = 0.5
+    pts[[w.NOSE, w.L_EYE, w.R_EYE, w.L_EAR, w.R_EAR], 1] = -0.05  # above the picture
+    pts[[w.L_SH, w.R_SH], 1] = 0.1
+    pts[[w.L_HIP, w.R_HIP], 1] = 0.45
+    pts[[w.L_ANK, w.R_ANK, w.L_HEEL, w.R_HEEL, w.L_TOE, w.R_TOE], 1] = 0.9
+    score, hints = placement.spot_check(pts, np.ones(33), 120, 25, 5)
+    assert "spot_head_cut" in hints and score >= 85, (score, hints)
+    pts[[w.L_SH, w.R_SH], 1] = -0.02
+    score, hints = placement.spot_check(pts, np.ones(33), 120, 25, 5)
+    assert "spot_shoulders_cut" in hints and score <= 70, (score, hints)
 
 
 def test_messages_complete():

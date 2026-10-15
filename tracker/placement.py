@@ -230,8 +230,10 @@ def spot_check(points, vis, brightness, fps, tilt_deg):
     issues = []
     if len(feet_seen) < 2 or feet_y > 0.97:
         issues.append(("spot_feet_cut", 35))
-    if head_y < 0.04:
-        issues.append(("spot_head_cut", 30))
+    if head_y < 0.04:  # works without the head (the shoulders anchor the body); with it, a bit better
+        shoulders_y = min(pts[L_SH][1], pts[R_SH][1])
+        issues.append(("spot_head_cut", 5) if shoulders_y > 0.03 and min(vis[L_SH], vis[R_SH]) > 0.5
+                      else ("spot_shoulders_cut", 30))
     body = feet_y - head_y
     if body > 0.93 and not issues:
         issues.append(("spot_too_close", 20))
@@ -253,5 +255,5 @@ def spot_check(points, vis, brightness, fps, tilt_deg):
     return int(max(0, min(100, score))), sorted(hints, key=ORDER.index)
 
 
-ORDER =["spot_no_person", "spot_feet_cut", "spot_head_cut", "spot_too_close", "spot_too_far", "spot_off_center",
+ORDER = ["spot_no_person", "spot_feet_cut", "spot_shoulders_cut", "spot_head_cut", "spot_too_close", "spot_too_far", "spot_off_center",
          "spot_too_high", "spot_too_low", "spot_dark", "spot_dim", "spot_slow", "spot_side_room"]

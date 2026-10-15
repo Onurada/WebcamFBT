@@ -202,6 +202,8 @@
                             <ComboBox x:Name="HotkeyPauseCombo" Grid.Row="2" Grid.Column="1" Tag="hotkey_pause" SelectionChanged="HotkeyCombo_SelectionChanged"/>
                         </Grid>
                         <CheckBox x:Name="AutoStartCheck" Content="{DynamicResource S.General.AutoStart}" Margin="0,10,0,0" Click="AutoStartCheck_Click"/>
+                        <CheckBox x:Name="AutoCalibCheck" Content="{DynamicResource S.General.AutoCalib}" Margin="0,6,0,0" Click="AutoCalibCheck_Click"/>
+                        <CheckBox x:Name="GestureCalibCheck" Content="{DynamicResource S.General.GestureCalib}" Margin="0,6,0,0" Click="GestureCalibCheck_Click"/>
                         <CheckBox x:Name="RememberCalibCheck" Content="{DynamicResource S.General.RememberCalib}" Margin="0,6,0,0" Click="RememberCalibCheck_Click"/>
                         <CheckBox x:Name="ShowPreviewCheck" Content="{DynamicResource S.General.ShowPreview}" Margin="0,6,0,0" Click="ShowPreviewCheck_Click"/>
                         <CheckBox x:Name="MinimizeToTrayCheck" Content="{DynamicResource S.General.MinimizeToTray}" Margin="0,6,0,0" Click="MinimizeToTrayCheck_Click"/>

@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private DateTime _lastStatus;
     private DateTime _calibResultUntil;
     private bool? _calibResultOk;
+    private string _calibFailSub = "Overlay.FailSub";
     private string _vrState = "off";
     private SetupAssistantWindow? _assistant;
     private TrayIcon? _tray;
@@ -172,6 +173,8 @@ public partial class MainWindow : Window
         MirrorCheck.IsChecked = cfg.GetBool("mirror_preview", true);
         AutoStartCheck.IsChecked = cfg.GetBool("auto_start", false);
         RememberCalibCheck.IsChecked = cfg.GetBool("remember_calibration", false);
+        AutoCalibCheck.IsChecked = cfg.GetBool("auto_calibrate", true);
+        GestureCalibCheck.IsChecked = cfg.GetBool("gesture_calibrate", true);
         ShowPreviewCheck.IsChecked = cfg.GetBool("show_preview", true);
         MinimizeToTrayCheck.IsChecked = cfg.GetBool("minimize_to_tray", true);
         CheckUpdatesCheck.IsChecked = cfg.GetBool("check_updates", true);
@@ -316,7 +319,7 @@ public partial class MainWindow : Window
         else
             ResetChips();
         if (_calibResultOk is bool ok && DateTime.Now < _calibResultUntil)
-            ShowCalibResult(ok, keepTime: true);
+            ShowCalibResult(ok, keepTime: true, failSub: _calibFailSub);
     }
 
     // ------------------------------------------------------------------ engine lifecycle
@@ -539,7 +542,9 @@ public partial class MainWindow : Window
                 break;
             case "calibration":
                 _recenterUntil = default;
-                ShowCalibResult(msg.GetProperty("ok").GetBoolean());
+                var moved = msg.TryGetProperty("reason", out var reason) && reason.ValueKind == JsonValueKind.String
+                            && reason.GetString() == "calib_moved";
+                ShowCalibResult(msg.GetProperty("ok").GetBoolean(), failSub: moved ? "Overlay.FailMovedSub" : "Overlay.FailSub");
                 if (msg.TryGetProperty("cameras", out var camResults) && msg.GetProperty("ok").GetBoolean())
                 {
                     var failed = camResults.EnumerateObject().Where(p => !p.Value.GetBoolean()).Select(p => p.Name).ToList();
@@ -674,22 +679,24 @@ public partial class MainWindow : Window
         else if (phase == "collect")
             ShowOverlay(Loc.T("Overlay.Collect"), Loc.T("Overlay.CollectSub"));
         else if (DateTime.Now > _calibResultUntil && _vrState == "connected" && s.GetProperty("hmd").GetBoolean() && !calibrated)
-            ShowOverlay(Loc.T("Overlay.NeedCalibTitle"), Loc.T("Overlay.NeedCalibSub", CalibrateKey));
+            ShowOverlay(Loc.T("Overlay.NeedCalibTitle"),
+                        Loc.T(AutoCalibCheck.IsChecked == true ? "Overlay.NeedCalibAutoSub" : "Overlay.NeedCalibSub", CalibrateKey));
         else if (DateTime.Now > _calibResultUntil)
             CalibOverlay.Visibility = Visibility.Collapsed;
     }
 
-    private void ShowCalibResult(bool ok, bool keepTime = false)
+    private void ShowCalibResult(bool ok, bool keepTime = false, string failSub = "Overlay.FailSub")
     {
+        _calibFailSub = failSub;
         if (!keepTime)
-            NotifyIfHidden(Loc.T(ok ? "Overlay.OkTitle" : "Overlay.FailTitle"), Loc.T(ok ? "Overlay.OkSub" : "Overlay.FailSub"));
+            NotifyIfHidden(Loc.T(ok ? "Overlay.OkTitle" : "Overlay.FailTitle"), Loc.T(ok ? "Overlay.OkSub" : failSub));
         _calibResultOk = ok;
         if (!keepTime)
             _calibResultUntil = DateTime.Now.AddSeconds(ok ? 2 : 4);
         if (ok)
             ShowOverlay(Loc.T("Overlay.OkTitle"), Loc.T("Overlay.OkSub"));
         else
-            ShowOverlay(Loc.T("Overlay.FailTitle"), Loc.T("Overlay.FailSub"));
+            ShowOverlay(Loc.T("Overlay.FailTitle"), Loc.T(_calibFailSub));
     }
 
     private void ShowOverlay(string title, string subtitle)
@@ -957,6 +964,12 @@ public partial class MainWindow : Window
 
     private void RememberCalibCheck_Click(object sender, RoutedEventArgs e) =>
         SetLive("remember_calibration", RememberCalibCheck.IsChecked == true);
+
+    private void AutoCalibCheck_Click(object sender, RoutedEventArgs e) =>
+        SetLive("auto_calibrate", AutoCalibCheck.IsChecked == true);
+
+    private void GestureCalibCheck_Click(object sender, RoutedEventArgs e) =>
+        SetLive("gesture_calibrate", GestureCalibCheck.IsChecked == true);
 
     private void ShowPreviewCheck_Click(object sender, RoutedEventArgs e)
     {

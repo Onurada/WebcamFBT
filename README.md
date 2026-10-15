@@ -30,18 +30,19 @@ WebcamFBT only reads the headset's pose from SteamVR, so it works with any heads
 The app recognizes the connected headset and shows its name on the SteamVR chip (e.g. *connected · Meta Quest 3*). Hovering the chip shows the connection and how to recenter on that headset. Tested with a Quest 3 over Steam Link; the others use the same path but have not been tested yet.
 
 ## Getting started
-1. **Place the camera:** about 2–3 m away, at waist or chest height. Your **whole body**, head to toe, must be visible. Use good lighting: in a dark room the camera drops from 30 to 20 frames per second.
+1. **Place the camera:** about 2–3 m away, at waist or chest height. At least your **shoulders to feet** must be visible; your head may be out of the picture (with it in view tracking is a little more precise). If you don't fit, tilt the camera down a bit: keeping the feet in the picture matters more than the head. Use good lighting: in a dark room the camera drops from 30 to 20 frames per second.
 2. Connect your headset to the PC (for a Quest: Link cable / Air Link / Steam Link / Virtual Desktop / ALVR) and start **SteamVR**.
 3. Open `app\WebcamFBT.exe` and press **Start**. The engine starts in about 3 seconds.
-4. **Calibrate:** wearing the headset, stand in front of the camera and press **F8**. The hotkey also works while in a game.
-   - After the first beep you have 3 seconds: **stand straight and look ahead**, arms at your sides.
-   - At the second beep **hold still for 2 seconds**.
-   - High beep: done. Long low beep: failed, press F8 again.
+4. **Calibrate (no key needed):** wearing the headset, **stand straight in front of the camera, look ahead and hold still for 2 seconds**, arms at your sides.
+   - Once it sees you standing still it calibrates **by itself**: two short beeps = measuring, hold still; high beep = done.
+   - Long low beep: it didn't work (e.g. you moved while it measured). Just stand still again.
+   - This only happens while not calibrated; a working calibration is never changed on its own.
+   - **To recalibrate**, hold both hands (controllers or tracked hands) **above your head for 2 seconds**. After the beep lower your arms, stand straight and look ahead. **F8** still works too.
 5. Run your game's full body calibration.
    - **VRChat:** T-pose, then pull both triggers.
    - **Vivecraft:** first set the model type to *Split Arms* or *Split Arms/Legs* under *Playermodel Settings*, then run *Calibrate FBT…*.
 
-> **Calibrate with F8 every session.** A Quest's tracking space can change between sessions (and when the headset wakes from standby), so an old calibration is not reused; no trackers are sent until you calibrate. Press F8 again if you move the camera or recenter the headset.
+> **Every session needs a calibration**, but all it takes is standing still in front of the camera for a moment. A Quest's tracking space can change between sessions, so an old calibration is not reused, and it is cleared when SteamVR reconnects. If you move the camera or recenter the headset, raise both hands (or press F8). The floor height is always read live from SteamVR.
 > If you enabled new trackers (elbows, knees…), redo the in-game full body calibration too.
 
 ## First launch and the notification area
@@ -54,7 +55,7 @@ One camera is the default. **Extra camera 1 / 2** under *Camera and model* add u
 
 - **What it gains:** each camera is weak along its own viewing axis (depth). With two cameras at 60–90° to each other, one sees well what the other sees poorly, and their results are merged with weights to match. A joint hidden from one camera may be seen by the other.
 - **A camera that sees you from behind** can swap left and right, so it is left out while a camera with a front view is available.
-- **Calibration:** F8 calibrates all cameras at once. Every camera must see you head to toe. If a camera is reported as not calibrated, fix its view and press F8 again.
+- **Calibration:** F8 calibrates all cameras at once. Every camera must see you at least from the shoulders to the feet. If a camera is reported as not calibrated, fix its view and press F8 again.
 - **Performance:** each camera runs its own model in parallel. On this PC two cameras with the full model manage about 25 frames per second each.
 - If an extra camera cannot be opened, the engine continues without it.
 
@@ -113,7 +114,7 @@ What protects against failures:
 - **Settings validation:** invalid values fall back to defaults or are clamped. A broken `config.json` is kept as `config.json.broken-<date>` and the app starts with defaults.
 - **Clear error messages:** if the camera can't be opened, is used by another program, the driver isn't installed or its UDP port is taken, you get a message saying what to do, plus two low beeps.
 - **Driver version check:** warns when SteamVR still runs an older WebcamFBT driver.
-- **Headset recenter:** if SteamVR reports a tracking space change, the app warns you (at most every 5 minutes); press F8 if anything looks off. The calibration is never changed on its own: the automatic correction in the first version misfired when the headset woke from standby and threw the body off, so it was removed.
+- **Headset recenter:** if SteamVR reports a tracking space change, the app warns you (at most every 5 minutes); if anything looks off, hold both hands above your head for 2 seconds (or press F8). The calibration is never changed on its own: the automatic correction in the first version misfired when the headset woke from standby and threw the body off, so it was removed.
 
 ## Limits (single camera)
 Adding a second camera (see above) largely reduces the first two.

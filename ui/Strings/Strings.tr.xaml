@@ -46,13 +46,17 @@
     <sys:String x:Key="S.Overlay.OkTitle">Kalibrasyon tamam ✓</sys:String>
     <sys:String x:Key="S.Overlay.OkSub">Şimdi oyundaki FBT kalibrasyonunu yapabilirsin</sys:String>
     <sys:String x:Key="S.Overlay.FailTitle">Kalibrasyon başarısız</sys:String>
-    <sys:String x:Key="S.Overlay.FailSub">Kask takılı olmalı ve baştan ayağa tüm vücudun görünmeli</sys:String>
+    <sys:String x:Key="S.Overlay.FailSub">Kask takılı olmalı ve en az omuzlarından ayaklarına kadar görünmelisin</sys:String>
 
     <!-- Genel -->
     <sys:String x:Key="S.General.Title">Genel</sys:String>
     <sys:String x:Key="S.General.Language">Dil</sys:String>
     <sys:String x:Key="S.General.AutoStart">Uygulama açılınca motoru başlat</sys:String>
     <sys:String x:Key="S.General.RememberCalib">Kalibrasyonu sonraki açılışa sakla (aynı kask ve kamera yerinde kaldıysa; önerilmez)</sys:String>
+    <sys:String x:Key="S.General.AutoCalib">Kameranın önünde hareketsiz durunca kendiliğinden kalibre et (yalnızca kalibrasyon yokken)</sys:String>
+    <sys:String x:Key="S.General.GestureCalib">İki elimi başımın üstünde 2 saniye tutunca yeniden kalibre et</sys:String>
+    <sys:String x:Key="S.Overlay.NeedCalibAutoSub">Kask takılıyken kameranın önünde dik dur, ileri bak ve 2 sn kıpırdama:&#x0a;kendiliğinden kalibre olur (ya da {0}). Omuzlardan ayaklara görünmen yeterli.</sys:String>
+    <sys:String x:Key="S.Overlay.FailMovedSub">Ölçerken hareket ettin. Dik dur, ileri bak ve 2 saniye kıpırdama</sys:String>
     <sys:String x:Key="S.General.ShowPreview">Kamera önizlemesini göster</sys:String>
     <sys:String x:Key="S.General.Hint">Pencere küçültülünce önizleme kendiliğinden durur ve işlemci oyuna kalır.</sys:String>
 
@@ -63,7 +67,7 @@
     <sys:String x:Key="S.Control.Calibrate">Kalibre et ({0})</sys:String>
     <sys:String x:Key="S.Control.Pause">Duraklat ({0})</sys:String>
     <sys:String x:Key="S.Control.NoVr">SteamVR olmadan test et (sadece önizleme)</sys:String>
-    <sys:String x:Key="S.Control.Hint">Kalibrasyon: kask takılı, kameranın önünde dik dur ve düz ileri bak. İlk bipten sonra 3 sn, ikinci bipte 2 sn kıpırdama.</sys:String>
+    <sys:String x:Key="S.Control.Hint">Kalibrasyon kendiliğinden olur: kask takılıyken kameranın önünde dik dur, ileri bak ve 2 sn kıpırdama (iki kısa bip, sonra tiz bip). Yenilemek için iki elini başının üstünde 2 sn tut ya da tuşa bas. Omuzlardan ayaklara görünmen yeterli; kafan kadraj dışında kalabilir.</sys:String>
 
     <!-- İnce ayar -->
     <sys:String x:Key="S.Fine.Title">İnce ayar</sys:String>
@@ -157,7 +161,7 @@
     <sys:String x:Key="S.Vr.PortBusy">port meşgul</sys:String>
     <sys:String x:Key="S.Vr.DriverOutdated">sürücü eski (SteamVR'ı yeniden aç)</sys:String>
     <sys:String x:Key="S.Overlay.RecenterTitle">Takip alanı değişti</sys:String>
-    <sys:String x:Key="S.Overlay.RecenterMaybe">Tracker'lar kayık görünürse {0} ile yeniden kalibre et.</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterMaybe">Tracker'lar kayık görünürse iki elini başının üstünde 2 sn tut (ya da {0}) ve yeniden kalibre et.</sys:String>
     <sys:String x:Key="S.Calib.Check">kontrol et ({0})</sys:String>
     <sys:String x:Key="S.General.OpenLogs">Kayıt klasörünü aç</sys:String>
     <sys:String x:Key="S.General.HotkeyCalibrate">Kalibrasyon kısayolu</sys:String>
@@ -207,7 +211,8 @@
     <sys:String x:Key="S.Spot.spot_no_person">Kimse görünmüyor: kameranın karşısına geç ve baştan ayağa görün.</sys:String>
     <sys:String x:Key="S.Spot.spot_no_image">Bu kameradan görüntü gelmiyor.</sys:String>
     <sys:String x:Key="S.Spot.spot_feet_cut">Ayakların görünmüyor: kamerayı geriye çek ya da biraz aşağı eğ.</sys:String>
-    <sys:String x:Key="S.Spot.spot_head_cut">Başın kesiliyor: kamerayı geriye çek ya da biraz yukarı eğ.</sys:String>
+    <sys:String x:Key="S.Spot.spot_head_cut">Başın görüntüde değil. Bu da çalışır (vücut omuzlardan kaska bağlanır); kafan da görünürse biraz daha hassas olur.</sys:String>
+    <sys:String x:Key="S.Spot.spot_shoulders_cut">Omuzların kesiliyor: kamerayı geriye çek ya da biraz yukarı eğ. En az omuzlardan ayaklara kadar görünmelisin.</sys:String>
     <sys:String x:Key="S.Spot.spot_too_close">Çok yakınsın: kamerayı biraz geriye al ki hareket payın kalsın.</sys:String>
     <sys:String x:Key="S.Spot.spot_too_far">Çok uzaksın: kamerayı yaklaştır, takip daha hassas olur.</sys:String>
     <sys:String x:Key="S.Spot.spot_off_center">Görüntünün kenarındasın: kamerayı sana doğru çevir.</sys:String>
@@ -255,7 +260,7 @@
     <sys:String x:Key="S.Wizard.PlacementTitle">Kamerayı yerleştir</sys:String>
     <sys:String x:Key="S.Wizard.PlacementText">• Kamerayı oyun alanının önüne, yaklaşık 2–3 m uzağa koy.&#x0a;• Bel hizasında (yerden ~1 m) ve düz baksın.&#x0a;• Baştan ayağa tüm vücudun görünmeli, ayakların da.&#x0a;• Oda iyi aydınlatılmış olsun; karanlıkta kamera yavaşlar.&#x0a;&#x0a;Emin olamazsan motor çalışırken Kamera ve model bölümündeki Kurulum asistanı ile kamerayı nereye koyacağını haritada görebilir ya da yerini puanlatabilirsin.</sys:String>
     <sys:String x:Key="S.Wizard.CalibrationTitle">Kalibrasyon ve oyun</sys:String>
-    <sys:String x:Key="S.Wizard.CalibrationText">1. Motoru başlat, kaskını PC'ye bağla ve SteamVR'ı aç.&#x0a;2. Kask takılıyken kameranın önünde dur ve {0}'e bas. İlk bipten sonra dik dur ve düz ileri bak; ikinci bipte 2 saniye kıpırdama. Tiz bip: tamam.&#x0a;3. Oyundaki FBT kalibrasyonunu yap:&#x0a;   • VRChat: T-pose ver, iki tetiğe bas.&#x0a;   • Vivecraft: Playermodel Settings'te model tipini Split Arms/Legs yap, sonra Calibrate FBT.&#x0a;&#x0a;Her oturumda (ve kaskı merkezlersen ya da kamerayı oynatırsan) {0} ile yeniden kalibre et. Kalibre edilene kadar tracker gönderilmez.</sys:String>
+    <sys:String x:Key="S.Wizard.CalibrationText">1. Motoru başlat, kaskını PC'ye bağla ve SteamVR'ı aç.&#x0a;2. Kask takılıyken kameranın önünde dur, ileri bak ve 2 saniye kıpırdama. Kendiliğinden kalibre olur: iki kısa bip, bitince tiz bip. Omuzlardan ayaklara görünmen yeterli; kafan kadraj dışında kalabilir.&#x0a;3. Oyundaki FBT kalibrasyonunu yap:&#x0a;   • VRChat: T-pose ver, iki tetiğe bas.&#x0a;   • Vivecraft: Playermodel Settings'te model tipini Split Arms/Legs yap, sonra Calibrate FBT.&#x0a;&#x0a;Yeniden kalibre etmek için (kaskı merkezlediysen ya da kamerayı oynattıysan) iki elini başının üstünde 2 saniye tut ya da {0}'e bas.</sys:String>
     <sys:String x:Key="S.Vr.ConnectedTo">bağlı · {0}</sys:String>
     <sys:String x:Key="S.Vr.Tooltip">{0} · {1}&#x0a;Merkezleme: {2}</sys:String>
     <sys:String x:Key="S.Conn.meta_link">Meta Horizon Link (kablo ya da Air Link)</sys:String>
