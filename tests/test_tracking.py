@@ -5,6 +5,7 @@ MediaPipe would report it, and checks calibration, tracker placement, smoothing 
 Run:  .venv\\Scripts\\python.exe tests\\test_tracking.py
 """
 
+import json
 import math
 import os
 import sys
@@ -237,6 +238,74 @@ def test_hotkey_parsing():
     cfg, problems = w.validate_config({"hotkey_calibrate": "Ctrl+F10", "hotkey_pause": "Space"})
     assert cfg["hotkey_calibrate"] == "Ctrl+F10" and cfg["hotkey_pause"] == "F9"
     assert [kw["key"] for _, kw in problems] == ["hotkey_pause"]
+
+
+def camera_view(W, cam_R, depth_noise=0.0, lateral_noise=0.0, rng=None):
+    """What MediaPipe would report from a camera with orientation cam_R (camera space, y up),
+    with noise mostly along the camera's own depth axis like a real single webcam."""
+    hip_mid = (W[w.L_HIP] + W[w.R_HIP]) / 2
+    P = ((W - hip_mid) @ cam_R) * MP_SCALE
+    if rng is not None:
+        P = P + rng.normal(0, 1, P.shape) * np.array([lateral_noise, lateral_noise, depth_noise])
+    return P
+
+
+def test_two_cameras_fix_depth():
+    W = skeleton()
+    hmd = headset(W)
+    cam_b = w.rot_y(math.radians(90)) @ CAM_R  # second camera 90° around the player
+    cals = []
+    for R in (CAM_R, cam_b):
+        c = w.Calibration(sound=False)
+        c.phase, c.t_phase = "collect", 0.0
+        P = camera_view(W, R)
+        for i in range(30):
+            c.update(0.05 * i, P, np.ones(33), hmd)
+        assert c.update(5.0, P, np.ones(33), hmd) is True
+        cals.append((R, c))
+    rng = np.random.default_rng(1)
+    single, fused = [], []
+    for _ in range(200):
+        views = [(w.camera_points(camera_view(W, R, 0.05, 0.01, rng), hmd, c), np.ones(33), c.R[:, 2]) for R, c in cals]
+        single.append(np.linalg.norm(views[0][0][w.L_ANK] - W[w.L_ANK]))
+        Wf, _ = w.fuse_views(views, hmd)
+        fused.append(np.linalg.norm(Wf[w.L_ANK] - W[w.L_ANK]))
+    assert np.mean(fused) < 0.6 * np.mean(single), (np.mean(fused), np.mean(single))
+
+
+def test_camera_seeing_the_back_is_ignored():
+    W = skeleton()
+    hmd = headset(W)
+    front = (W, np.ones(33), np.array([0.0, 0.0, 1.0]))
+    # Seen from behind, MediaPipe swaps left and right, so the body appears to face backwards.
+    mirrored = W.copy()
+    for a, b in ((w.L_EYE, w.R_EYE), (w.L_EAR, w.R_EAR), (w.L_SH, w.R_SH), (w.L_ELB, w.R_ELB), (w.L_HIP, w.R_HIP),
+                 (w.L_KNEE, w.R_KNEE), (w.L_ANK, w.R_ANK), (w.L_HEEL, w.R_HEEL), (w.L_TOE, w.R_TOE)):
+        mirrored[[a, b]] = W[[b, a]]
+    assert w.body_facing_angle(mirrored, hmd) > math.radians(110)
+    Wf, _ = w.fuse_views([front, (mirrored, np.ones(33), np.array([1.0, 0, 0]))], hmd)
+    assert np.allclose(Wf, W)
+
+
+def test_calibration_set_and_file():
+    tmp = os.path.join(os.environ.get("TEMP", "."), "webcamfbt_calib_multi.json")
+    w.CALIBRATION_FILE = tmp
+    with open(tmp, "w", encoding="utf-8") as f:  # old single-camera file
+        json.dump({"camera_index": 0, "R": np.eye(3).tolist(), "scale": 1.2, "floor": -0.3}, f)
+    cs = w.CalibrationSet([0, 2])
+    assert cs.load() == [0] and cs.ready and cs.ready_count() == 1 and cs.scale == 1.2
+    cs.cals[2].R, cs.cals[2].scale, cs.cals[2].floor, cs.cals[2].ready = w.rot_y(1.0), 0.9, -0.3, True
+    cs.save()
+    again = w.CalibrationSet([0, 2])
+    assert again.load() == [0, 2] and np.allclose(again.cals[2].R, w.rot_y(1.0))
+    os.remove(tmp)
+
+
+def test_extra_camera_config():
+    cfg, problems = w.validate_config({"camera_index": 1, "extra_cameras": [1, 3, 3, 4, 7]})
+    assert cfg["extra_cameras"] == [3, 4] and problems  # main camera and duplicates dropped, max 2
+    assert w.validate_config({"extra_cameras": "2"})[0]["extra_cameras"] == []
+    assert w.validate_config({})[0]["extra_cameras"] == []
 
 
 def test_messages_complete():

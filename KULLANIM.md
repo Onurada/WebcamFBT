@@ -22,6 +22,30 @@ Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En
 > Kalibrasyon kaydedilir ve bir sonraki açılışta kendiliğinden yüklenir. **Kamerayı oynatırsan ya da Quest'te merkezleme yaparsan** F8 ile yenile.
 > Yeni tracker'ları (dirsek, diz…) açtıysan oyundaki FBT kalibrasyonunu da yenile.
 
+## Birden fazla kamera (isteğe bağlı)
+Varsayılan tek kameradır. *Kamera ve model* bölümündeki **Ek kamera 1 / 2** ile en fazla iki kamera daha eklenebilir (telefonunu DroidCam ya da Iriun ile webcam olarak da kullanabilirsin).
+
+- **Ne kazandırır:** Her kamera kendi görüş ekseninde (derinlikte) zayıftır. İki kamera birbirine 60–90° açıyla durunca birinin zayıf olduğu ekseni diğeri iyi görür, sonuçlar buna göre ağırlıklı birleştirilir. Bir kameradan saklanan eklemi diğeri görebilir.
+- **Arkadan bakan kamera:** Sağı solu karıştırabileceği için, önden gören bir kamera varken birleştirmeye katılmaz.
+- **Kalibrasyon:** F8 tüm kameraları aynı anda kalibre eder. Her kamera seni baştan ayağa görmeli. Kalibre edilemeyen kamera uyarısı çıkarsa o kamerayı düzeltip tekrar F8'e bas.
+- **Performans:** Her kamera kendi modelini paralel çalıştırır. Bu bilgisayarda iki kamera full modelle kamera başına saniyede yaklaşık 25 kare işleyebiliyor.
+- Ek kamera açılamazsa motor onsuz devam eder.
+
+## Kurulum asistanı
+*Kamera ve model → Kurulum asistanı…* ile açılır, motor çalışırken kullanılır. İki modu var, hangisini kullanacağını sen seçersin:
+
+**Quest ile oda haritası**
+- SteamVR açık ve kask takılıyken oyun alanını okur. İstersen **Odayı gezerek tara** ile kaskla odanın duvarları boyunca bir tur atarsın, kameralar duvarın dışına önerilmez.
+- Kamera sayısına (1–3) ve webcam'in görüş açısına göre kameraların nereye, hangi yöne bakacak şekilde konacağını kuşbakışı haritada gösterir.
+- Haritada sen mavi noktasın. Yeşil numaralı noktaya yürü ve kamerayı oraya, oyun alanının ortasına bakacak şekilde, yerden yaklaşık 1 m yükseğe koy.
+- Renkler: yeşil = tüm kameralar seni baştan ayağa görür, sarı = bazıları, kırmızı = hiçbiri.
+- Kalibrasyondan sonra kameraların tahmini gerçek yerini de turuncu olarak gösterebilir.
+
+**Webcam ile yer puanı**
+- Kask gerekmez. Kamerayı (ya da telefonu) aday bir yere koy, karşısına geç ve baştan ayağa dur.
+- Her kamera için 0–100 puan ve ne yapman gerektiği yazar: ayakların görünmüyor, çok uzaksın, kamera çok yüksek, ortam karanlık gibi.
+- Webcam kendi konumunu bilmediği için bu mod harita çıkarmaz; denediğin her yeri ayrı puanlar.
+
 ## Arayüz
 | Bölüm | Ne yapar |
 |---|---|
@@ -65,6 +89,7 @@ Hatalara karşı önlemler:
 - **Quest merkezleme:** Takip alanı değişirse (Meta butonuna basılı tutup merkezleme) kalibrasyon otomatik düzeltilir ve uyarı verilir. Kayık görünürse F8.
 
 ## Sınırlar (tek kamera)
+İkinci bir kamera eklemek (yukarıya bak) ilk iki maddeyi büyük ölçüde azaltır.
 - Kameraya yaklaşma/uzaklaşma (derinlik) en zayıf eksen.
 - Kameraya **sırtını dönersen** sağ/sol karışabilir.
 - Oturma, yere yatma ve kameradan saklanan uzuvlar kötü takip edilir.

@@ -8,20 +8,24 @@ _lang = "en"
 _hotkeys = {"cal": "F8", "pause": "F9"}  # filled into every text that mentions a hotkey
 
 MESSAGES = {
+    "extra_camera_failed": {
+        "tr": 'Ek kamera {i} açılamadı ({err}); onsuz devam ediliyor.',
+        "en": 'Extra camera {i} could not be opened ({err}); continuing without it.',
+    },
     "vr_connected": {"tr": "SteamVR'a bağlanıldı", "en": "Connected to SteamVR"},
     "vr_closed": {"tr": "SteamVR kapandı", "en": "SteamVR closed"},
     "vr_error": {"tr": "SteamVR hatası: {err}", "en": "SteamVR error: {err}"},
     "calib_failed": {
-        "tr": "Kalibrasyon başarısız: vücut veya kask yeterince görülmedi",
-        "en": "Calibration failed: the body or the headset was not seen well enough",
+        "tr": 'Kamera {i}: kalibrasyon başarısız, vücut veya kask yeterince görülmedi',
+        "en": 'Camera {i}: calibration failed, the body or the headset was not seen well enough',
     },
     "calib_ok": {
-        "tr": "Kalibrasyon tamam: yön {yaw:.1f}°, ölçek {scale:.2f}, zemin {floor:.2f} m, {n} örnek",
-        "en": "Calibration done: yaw {yaw:.1f}°, scale {scale:.2f}, floor {floor:.2f} m, {n} samples",
+        "tr": 'Kamera {i}: kalibrasyon tamam (yön {yaw:.1f}°, ölçek {scale:.2f}, zemin {floor:.2f} m, {n} örnek)',
+        "en": 'Camera {i}: calibration done (yaw {yaw:.1f}°, scale {scale:.2f}, floor {floor:.2f} m, {n} samples)',
     },
     "calib_loaded": {
-        "tr": "Kayıtlı kalibrasyon yüklendi. Kamerayı oynattıysan ya da Quest'te merkezleme yaptıysan {cal} ile yenile.",
-        "en": "Saved calibration loaded. Press {cal} to redo it if the camera moved or you recentered the Quest.",
+        "tr": "Kayıtlı kalibrasyon yüklendi (kamera {cams}). Kamerayı oynattıysan ya da Quest'te merkezleme yaptıysan {cal} ile yenile.",
+        "en": 'Saved calibration loaded (camera {cams}). Press {cal} to redo it if a camera moved or you recentered the Quest.',
     },
     "camera_ok": {"tr": "Kamera {i}: çalışıyor {w}x{h}", "en": "Camera {i}: working {w}x{h}"},
     "camera_no_image": {"tr": "Kamera {i}: açıldı ama görüntü yok", "en": "Camera {i}: opened but no image"},

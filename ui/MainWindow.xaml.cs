@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private DateTime _calibResultUntil;
     private bool? _calibResultOk;
     private string _vrState = "off";
+    private SetupAssistantWindow? _assistant;
     private DateTime _recenterUntil;
 
     // Automatic restart: a crashed or hung engine is restarted, but not more than MaxRestarts
@@ -112,6 +113,23 @@ public partial class MainWindow : Window
     {
         if (_cfg != null && _cfg.GetBool("auto_start", false))
             StartEngine();
+        // "WebcamFBT.exe --assistant" opens the setup assistant right away.
+        var args = Environment.GetCommandLineArgs();
+        if (args.Contains("--assistant", StringComparer.OrdinalIgnoreCase))
+        {
+            AssistantButton_Click(this, new RoutedEventArgs());
+            if (args.Contains("--spot", StringComparer.OrdinalIgnoreCase))
+                _assistant?.SelectSpotTab();
+            // "--assistant-snapshot <file.png>": save the assistant's content 15 s later (for checks).
+            var at = Array.FindIndex(args, a => a.Equals("--assistant-snapshot", StringComparison.OrdinalIgnoreCase));
+            if (at >= 0 && at + 1 < args.Length)
+            {
+                var path = args[at + 1];
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+                timer.Tick += (_, _) => { timer.Stop(); _assistant?.SaveSnapshot(path); };
+                timer.Start();
+            }
+        }
     }
 
     // ------------------------------------------------------------------ config <-> UI
@@ -163,7 +181,64 @@ public partial class MainWindow : Window
                 CameraCombo.Items.Insert(0, new ComboBoxItem { Content = Loc.T("Camera.NotFound", current), Tag = current });
         }
         CameraCombo.SelectedItem = CameraCombo.Items.Cast<ComboBoxItem>().First(i => (int)i.Tag == current);
+        RebuildExtraCameraItems();
         _loading = wasLoading;
+    }
+
+    /// <summary>Optional extra cameras: "None" plus every camera other than the main one.</summary>
+    private void RebuildExtraCameraItems()
+    {
+        if (_cfg == null) return;
+        var main = _cfg.GetInt("camera_index", 0);
+        var extras = _cfg.GetIntList("extra_cameras");
+        var available = _scannedCameras?.Select(c => (c.Index, Text: Loc.T("Camera.Item", c.Index, c.Width, c.Height))).ToList()
+                        ?? Enumerable.Range(0, 6).Select(i => (Index: i, Text: Loc.T("Camera.ItemSimple", i))).ToList();
+        foreach (var e in extras.Where(e => available.All(a => a.Index != e)))
+            available.Add((e, Loc.T("Camera.NotFound", e)));
+        var wasLoading = _loading;
+        _loading = true;
+        foreach (var (combo, slot) in new[] { (Extra1Combo, 0), (Extra2Combo, 1) })
+        {
+            combo.Items.Clear();
+            combo.Items.Add(new ComboBoxItem { Content = Loc.T("Camera.None"), Tag = -1 });
+            foreach (var (index, text) in available.Where(a => a.Index != main))
+                combo.Items.Add(new ComboBoxItem { Content = text, Tag = index });
+            var selected = slot < extras.Count ? extras[slot] : -1;
+            combo.SelectedItem = combo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == selected) ?? combo.Items[0];
+        }
+        _loading = wasLoading;
+    }
+
+    private async void ExtraCameraCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || _cfg == null) return;
+        var main = _cfg.GetInt("camera_index", 0);
+        var chosen = new[] { Extra1Combo, Extra2Combo }
+            .Select(c => c.SelectedItem is ComboBoxItem i ? (int)i.Tag : -1)
+            .Where(i => i >= 0 && i != main).Distinct().ToList();
+        if (chosen.SequenceEqual(_cfg.GetIntList("extra_cameras"))) return;
+        _cfg.Set("extra_cameras", new System.Text.Json.Nodes.JsonArray(chosen.Select(i => (System.Text.Json.Nodes.JsonNode?)i).ToArray()));
+        SaveConfig();
+        RebuildExtraCameraItems();
+        await RestartEngineAsync("Log.ExtraCamerasChanged");
+    }
+
+    private void AssistantButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_cfg == null) return;
+        if (_assistant != null)
+        {
+            _assistant.Activate();
+            return;
+        }
+        var cameras = 1 + _cfg.GetIntList("extra_cameras").Count;
+        _assistant = new SetupAssistantWindow(_engine, cameras, _cfg.GetDouble("camera_hfov", 60), v => SetLive("camera_hfov", Math.Round(v)))
+        {
+            Owner = this,
+        };
+        _assistant.Closed += (_, _) => _assistant = null;
+        _assistant.Show();
+        _assistant.SendMode();
     }
 
     /// <summary>Stores a setting the engine also uses, saves it shortly after, and pushes it live.</summary>
@@ -263,6 +338,7 @@ public partial class MainWindow : Window
         // During a restart the old process's exit can arrive after the new one has started.
         if (_restarting || _engine.IsRunning) return;
         _watchdog.Stop();
+        _assistant?.EngineStopped();
         SetRunningUi(false);
         Preview.Source = null;
         CalibOverlay.Visibility = Visibility.Collapsed;
@@ -366,10 +442,21 @@ public partial class MainWindow : Window
                 SetChip(EngineDot, EngineValue, Loc.T("Engine.Running"), Good);
                 SetPlaceholder("Placeholder.Camera");
                 ApplyPreviewState();
+                _assistant?.SendMode();
+                break;
+            case "room":
+            case "spot":
+                _assistant?.Handle(msg);
                 break;
             case "calibration":
                 _recenterUntil = default;
                 ShowCalibResult(msg.GetProperty("ok").GetBoolean());
+                if (msg.TryGetProperty("cameras", out var camResults) && msg.GetProperty("ok").GetBoolean())
+                {
+                    var failed = camResults.EnumerateObject().Where(p => !p.Value.GetBoolean()).Select(p => p.Name).ToList();
+                    if (failed.Count > 0)
+                        ShowOverlay(Loc.T("Overlay.OkTitle"), Loc.T("Overlay.OkPartial", string.Join(", ", failed)));
+                }
                 break;
             case "recenter":
                 var corrected = msg.GetProperty("corrected").GetBoolean();
@@ -393,7 +480,17 @@ public partial class MainWindow : Window
 
         var fps = s.GetProperty("fps").GetDouble();
         var cameraState = s.TryGetProperty("camera_state", out var camEl) ? camEl.GetString() : "ok";
-        if (cameraState == "no_frames")
+        var cams = s.TryGetProperty("cameras", out var camsEl) ? camsEl.EnumerateArray().ToList() : [];
+        var badCam = cams.FirstOrDefault(c => c.GetProperty("state").GetString() != "ok");
+        if (cams.Count > 1 && badCam.ValueKind == JsonValueKind.Object)
+            SetChip(CameraDot, CameraValue, Loc.T("Camera.LostN", badCam.GetProperty("index").GetInt32()), Bad);
+        else if (cams.Count > 1)
+        {
+            var minFps = cams.Min(c => c.GetProperty("fps").GetDouble());
+            var fpsText = string.Join("/", cams.Select(c => c.GetProperty("fps").GetDouble().ToString("0")));
+            SetChip(CameraDot, CameraValue, Loc.T("Camera.Multi", cams.Count, fpsText + " FPS"), minFps >= 18 ? Good : minFps >= 10 ? Warn : Bad);
+        }
+        else if (cameraState == "no_frames")
             SetChip(CameraDot, CameraValue, Loc.T("Camera.NoFrames"), Bad);
         else if (cameraState == "lost")
             SetChip(CameraDot, CameraValue, Loc.T("Camera.Lost"), Bad);
@@ -442,6 +539,11 @@ public partial class MainWindow : Window
             SetChip(CalibDot, CalibValue, Loc.T("Calib.Running"), Warn);
         else if (calibrated && DateTime.Now < _recenterUntil)
             SetChip(CalibDot, CalibValue, Loc.T("Calib.Check", CalibrateKey), Warn);
+        else if (calibrated && cams.Count > 1)
+        {
+            var ready = s.TryGetProperty("calibrated_count", out var rc) ? rc.GetInt32() : cams.Count;
+            SetChip(CalibDot, CalibValue, Loc.T("Calib.ReadyMulti", ready, cams.Count), ready == cams.Count ? Good : Warn);
+        }
         else if (calibrated)
             SetChip(CalibDot, CalibValue, Loc.T(saved ? "Calib.ReadySaved" : "Calib.Ready"), Good);
         else
@@ -580,7 +682,10 @@ public partial class MainWindow : Window
         var index = (int)item.Tag;
         if (_cfg.GetInt("camera_index", 0) == index) return;
         _cfg.Set("camera_index", index);
+        var extras = _cfg.GetIntList("extra_cameras").Where(i => i != index).ToList();
+        _cfg.Set("extra_cameras", new System.Text.Json.Nodes.JsonArray(extras.Select(i => (System.Text.Json.Nodes.JsonNode?)i).ToArray()));
         SaveConfig();
+        RebuildExtraCameraItems();
         await RestartEngineAsync("Log.CameraChanged");
     }
 

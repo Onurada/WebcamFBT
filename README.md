@@ -22,6 +22,30 @@ Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both
 > The calibration is saved and loaded automatically next time. **If you move the camera or recenter the Quest**, press F8 to redo it.
 > If you enabled new trackers (elbows, knees…), redo the in-game full body calibration too.
 
+## More than one camera (optional)
+One camera is the default. **Extra camera 1 / 2** under *Camera and model* add up to two more (a phone works too, with DroidCam or Iriun).
+
+- **What it gains:** each camera is weak along its own viewing axis (depth). With two cameras at 60–90° to each other, one sees well what the other sees poorly, and their results are merged with weights to match. A joint hidden from one camera may be seen by the other.
+- **A camera that sees you from behind** can swap left and right, so it is left out while a camera with a front view is available.
+- **Calibration:** F8 calibrates all cameras at once. Every camera must see you head to toe. If a camera is reported as not calibrated, fix its view and press F8 again.
+- **Performance:** each camera runs its own model in parallel. On this PC two cameras with the full model manage about 25 frames per second each.
+- If an extra camera cannot be opened, the engine continues without it.
+
+## Setup assistant
+Open it with *Camera and model → Setup assistant…* while the engine runs. It has two modes, you pick which one to use:
+
+**Room map with the Quest**
+- With SteamVR running and the headset on, it reads your play area. Optionally **Scan the room by walking**: walk once along the walls with the headset on, so no camera is suggested outside your walls.
+- For 1–3 cameras and your webcam's field of view, a top-down map shows where each camera goes and which way it should face.
+- You are the blue dot. Walk to a green numbered spot and put the camera there, facing the middle of the play area, about 1 m off the floor.
+- Colours: green = every camera sees you head to toe, yellow = some do, red = none.
+- After calibrating, it can also show where the cameras roughly are, in orange.
+
+**Spot score with the webcam**
+- No headset needed. Put the camera (or phone) at a candidate spot, step in front of it and stand head to toe in view.
+- Every camera gets a 0–100 score and tells you what to do: your feet are cut off, you are too far, the camera is too high, it is dark, and so on.
+- A webcam does not know where it is, so this mode makes no map; it scores each spot you try.
+
 ## The app
 | Section | What it does |
 |---|---|
@@ -65,6 +89,7 @@ What protects against failures:
 - **Quest recenter:** when the tracking space changes (holding the Meta button to recenter), the calibration is corrected automatically and you get a warning. Press F8 if anything looks off.
 
 ## Limits (single camera)
+Adding a second camera (see above) largely reduces the first two.
 - Moving towards/away from the camera (depth) is the weakest axis.
 - With **your back to the camera**, left and right can swap.
 - Sitting, lying down and limbs hidden from the camera track poorly.

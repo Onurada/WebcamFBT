@@ -1,0 +1,123 @@
+<Window x:Class="WebcamFBT.SetupAssistantWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource S.Assistant.Title}" Width="1040" Height="760" MinWidth="860" MinHeight="600"
+        WindowStartupLocation="CenterOwner" Closed="Window_Closed">
+
+    <Window.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="EngineNotice" Grid.Row="0" Margin="0,0,0,10" Foreground="{StaticResource WarnBrush}"
+                   TextWrapping="Wrap" Visibility="Collapsed" Text="{DynamicResource S.Assistant.NeedsEngine}"/>
+
+        <TabControl x:Name="Tabs" Grid.Row="1" SelectionChanged="Tabs_SelectionChanged">
+            <!-- Quest: room map -->
+            <TabItem x:Name="RoomTab" Header="{DynamicResource S.Assistant.RoomTab}">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="320"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Background="{StaticResource PreviewBackground}" CornerRadius="8" ClipToBounds="True">
+                        <Grid>
+                            <Canvas x:Name="Map" SizeChanged="Map_SizeChanged"/>
+                            <Border x:Name="MapNoticeBox" VerticalAlignment="Bottom" Margin="10" Padding="12,8" CornerRadius="6"
+                                    Background="#CC101216" Visibility="Collapsed">
+                                <TextBlock x:Name="MapNotice" TextAlignment="Center" TextWrapping="Wrap"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource S.Assistant.RoomIntro}"/>
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="110"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource S.Assistant.CameraCount}" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="CountCombo" Grid.Column="1" SelectionChanged="RoomSettings_Changed">
+                                            <ComboBoxItem Content="1" Tag="1"/>
+                                            <ComboBoxItem Content="2" Tag="2"/>
+                                            <ComboBoxItem Content="3" Tag="3"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                        <TextBlock Text="{DynamicResource S.Assistant.Fov}"/>
+                                        <TextBlock x:Name="FovText" Margin="6,0,0,0" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                    <Slider x:Name="FovSlider" Minimum="40" Maximum="120" TickFrequency="5" IsSnapToTickEnabled="True"
+                                            Margin="0,4,0,0" ValueChanged="FovSlider_ValueChanged"/>
+                                    <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource S.Assistant.FovHint}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock x:Name="RoomSourceText" TextWrapping="Wrap"/>
+                                    <Button x:Name="WalkButton" Margin="0,10,0,0" HorizontalAlignment="Stretch" Click="WalkButton_Click"/>
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" Text="{DynamicResource S.Assistant.WalkHint}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource S.Assistant.Spots}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <ItemsControl x:Name="SpotList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <CheckBox x:Name="ShowActualCheck" Content="{DynamicResource S.Assistant.ShowActual}" Click="ShowActualCheck_Click"/>
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" Text="{DynamicResource S.Assistant.Legend}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- Webcam: spot check -->
+            <TabItem x:Name="SpotTab" Header="{DynamicResource S.Assistant.SpotTab}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,12,0,0">
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,12" Text="{DynamicResource S.Assistant.SpotIntro}"/>
+                        <ItemsControl x:Name="SpotCards">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

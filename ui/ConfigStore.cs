@@ -54,6 +54,9 @@ public sealed class ConfigStore
     // Same defaults as DEFAULTS in tracker/webcam_fbt.py
     private static readonly HashSet<string> DefaultTrackers = ["hip", "left_foot", "right_foot"];
 
+    public List<int> GetIntList(string key) =>
+        _root[key] is JsonArray arr ? arr.Select(n => Get(n, int.MinValue)).Where(i => i != int.MinValue).ToList() : [];
+
     public bool GetTracker(string name) =>
         _root["trackers"] is JsonObject trackers ? Get(trackers[name], DefaultTrackers.Contains(name)) : DefaultTrackers.Contains(name);
 

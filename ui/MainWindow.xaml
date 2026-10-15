@@ -281,6 +281,24 @@
                                 <ComboBoxItem Content="{DynamicResource S.Camera.ModelHeavy}" Tag="heavy"/>
                             </ComboBox>
                         </Grid>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{DynamicResource S.Camera.Extra1}" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="Extra1Combo" Grid.Column="1" HorizontalAlignment="Stretch" SelectionChanged="ExtraCameraCombo_SelectionChanged"/>
+                            <TextBlock Grid.Row="2" Text="{DynamicResource S.Camera.Extra2}" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="Extra2Combo" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" SelectionChanged="ExtraCameraCombo_SelectionChanged"/>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource S.Camera.ExtraHint}"/>
+                        <Button x:Name="AssistantButton" Content="{DynamicResource S.Camera.Assistant}" Margin="0,10,0,0"
+                                HorizontalAlignment="Stretch" Click="AssistantButton_Click"/>
                         <CheckBox x:Name="MirrorCheck" Content="{DynamicResource S.Camera.Mirror}" Margin="0,10,0,0" Click="MirrorCheck_Click"/>
                         <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource S.Camera.Hint}"/>
                     </StackPanel>

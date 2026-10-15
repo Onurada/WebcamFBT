@@ -41,7 +41,9 @@ jobs:
       - name: Engine tests
         env:
           PYTHONIOENCODING: utf-8
-        run: python tests/test_tracking.py
+        run: |
+          python tests/test_tracking.py
+          python tests/test_placement.py
 
       - name: Set up MSVC command line
         uses: ilammy/msvc-dev-cmd@v1
