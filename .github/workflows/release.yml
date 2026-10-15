@@ -1,0 +1,71 @@
+# Builds the installer and publishes it as a GitHub release when a version tag is pushed:
+#   git tag v0.5.0 && git push origin v0.5.0
+# The tag must match the VERSION file.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches VERSION
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ("${{ github.ref_name }}" -ne "v$version") { throw "Tag ${{ github.ref_name }} does not match VERSION $version" }
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build SteamVR driver
+        shell: cmd
+        run: build_driver.bat
+
+      - name: Run tests
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python -m pip install -r tracker/requirements.txt
+          python tests/test_tracking.py
+          python tests/test_placement.py
+          python tests/test_headset.py
+
+      - name: Build installer
+        shell: pwsh
+        run: ./installer/package.ps1
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          gh release create "${{ github.ref_name }}" "build/installer/WebcamFBT-Setup-$version.exe" `
+            --title "WebcamFBT $version" --notes-file installer/release-notes.md
+
+      - name: Keep installer as artifact (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebcamFBT-Setup
+          path: build/installer/*.exe

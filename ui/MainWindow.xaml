@@ -205,11 +205,14 @@
                         <CheckBox x:Name="RememberCalibCheck" Content="{DynamicResource S.General.RememberCalib}" Margin="0,6,0,0" Click="RememberCalibCheck_Click"/>
                         <CheckBox x:Name="ShowPreviewCheck" Content="{DynamicResource S.General.ShowPreview}" Margin="0,6,0,0" Click="ShowPreviewCheck_Click"/>
                         <CheckBox x:Name="MinimizeToTrayCheck" Content="{DynamicResource S.General.MinimizeToTray}" Margin="0,6,0,0" Click="MinimizeToTrayCheck_Click"/>
+                        <CheckBox x:Name="CheckUpdatesCheck" Content="{DynamicResource S.Update.Auto}" Margin="0,6,0,0" Click="CheckUpdatesCheck_Click"/>
                         <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource S.General.Hint}"/>
                         <Button x:Name="WizardButton" Content="{DynamicResource S.Wizard.Open}" Margin="0,10,0,0"
                                 HorizontalAlignment="Stretch" Click="WizardButton_Click"/>
                         <Button x:Name="OpenLogsButton" Content="{DynamicResource S.General.OpenLogs}" Margin="0,8,0,0"
                                 HorizontalAlignment="Stretch" Click="OpenLogsButton_Click"/>
+                        <Button x:Name="UpdateButton" Content="{DynamicResource S.Update.Check}" Margin="0,8,0,0"
+                                HorizontalAlignment="Stretch" Click="UpdateButton_Click"/>
                     </StackPanel>
                 </Border>
 

@@ -24,17 +24,38 @@ public static class DriverManager
     {
         var log = new StringBuilder();
         log.AppendLine(await RunAsync(VrPathReg(), "adddriver", AppPaths.DriverDir));
-        var settings = Path.Combine(ReadPaths("config").FirstOrDefault() ?? @"C:\Program Files (x86)\Steam\config", "steamvr.vrsettings");
+        var settings = Path.Combine(ReadPaths("config").FirstOrDefault() ?? Path.Combine(SteamPath(), "config"), "steamvr.vrsettings");
         log.AppendLine(await RunAsync(AppPaths.Python, AppPaths.SetRolesScript, settings));
         return log.ToString().Trim();
     }
 
-    public static Task<string> UninstallAsync() => RunAsync(VrPathReg(), "removedriver", AppPaths.DriverDir);
+    public static async Task<string> UninstallAsync()
+    {
+        var log = new StringBuilder();
+        log.AppendLine(await RunAsync(VrPathReg(), "removedriver", AppPaths.DriverDir));
+        // The roles are shared by every copy of the driver (same serials): keep them while another
+        // WebcamFBT driver (e.g. a developer build) is still registered.
+        var others = ReadPaths("external_drivers").Any(d =>
+            Path.GetFileName(d.TrimEnd('\\', '/')).Equals("webcamfbt", StringComparison.OrdinalIgnoreCase));
+        if (!others)
+        {
+            var settings = Path.Combine(ReadPaths("config").FirstOrDefault() ?? Path.Combine(SteamPath(), "config"), "steamvr.vrsettings");
+            log.AppendLine(await RunAsync(AppPaths.Python, AppPaths.SetRolesScript, "--remove", settings));
+        }
+        return log.ToString().Trim();
+    }
 
     private static string VrPathReg()
     {
-        var runtime = ReadPaths("runtime").FirstOrDefault() ?? @"C:\Program Files (x86)\Steam\steamapps\common\SteamVR";
+        var runtime = ReadPaths("runtime").FirstOrDefault() ?? Path.Combine(SteamPath(), "steamapps", "common", "SteamVR");
         return Path.Combine(runtime, "bin", "win64", "vrpathreg.exe");
+    }
+
+    /// <summary>Steam's install folder from the registry (fallback: the default location).</summary>
+    private static string SteamPath()
+    {
+        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
+        return key?.GetValue("SteamPath") is string path ? Path.GetFullPath(path) : @"C:\Program Files (x86)\Steam";
     }
 
     private static IEnumerable<string> ReadPaths(string key)

@@ -7,7 +7,13 @@ public static class AppPaths
 {
     public static string? Root { get; } = FindRoot();
 
-    public static string Python => Path.Combine(Root!, ".venv", "Scripts", "python.exe");
+    // Installed: the bundled Python in python\. From the source tree: the developer's .venv.
+    public static string Python => File.Exists(Path.Combine(Root!, "python", "python.exe"))
+        ? Path.Combine(Root!, "python", "python.exe")
+        : Path.Combine(Root!, ".venv", "Scripts", "python.exe");
+
+    public static string Version =>
+        typeof(AppPaths).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "?";
     public static string EngineScript => Path.Combine(Root!, "tracker", "webcam_fbt.py");
     public static string CamerasScript => Path.Combine(Root!, "tracker", "cameras.py");
     public static string SetRolesScript => Path.Combine(Root!, "tracker", "set_roles.py");

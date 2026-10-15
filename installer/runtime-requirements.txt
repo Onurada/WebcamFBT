@@ -1,0 +1,12 @@
+# What the installed engine needs, installed with --no-deps so MediaPipe's optional extras
+# (matplotlib, sounddevice, a second OpenCV build) are not shipped. Keep versions in step with
+# tracker/requirements.txt. If an import fails in the packaged build, add the missing package here.
+mediapipe==1.1.1
+opencv-python==5.0.0.93
+numpy==2.5.4
+openvr==2.12.1401
+pygrabber==0.2
+comtypes==1.4.17
+absl-py==2.5.1
+flatbuffers==25.12.19
+certifi==2026.7.22

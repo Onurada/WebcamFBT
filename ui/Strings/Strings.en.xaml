@@ -271,4 +271,12 @@
     <sys:String x:Key="S.Recenter.rift">hold the Oculus button on the right controller</sys:String>
     <sys:String x:Key="S.Recenter.vd">from the Virtual Desktop menu or by holding the Meta button</sys:String>
     <sys:String x:Key="S.Recenter.generic">use your headset's or the SteamVR menu's recenter command</sys:String>
+    <sys:String x:Key="S.Setup.SteamVrOpenInstall">SteamVR is open, so the WebcamFBT driver could not be registered now. Close SteamVR and press SteamVR driver &gt; Install / repair in WebcamFBT.</sys:String>
+    <sys:String x:Key="S.Setup.SteamVrOpenUninstall">SteamVR is open, so the WebcamFBT driver could not be removed from SteamVR. Close SteamVR and run the uninstall again.</sys:String>
+    <sys:String x:Key="S.Update.Auto">Check for updates at startup (connects to GitHub)</sys:String>
+    <sys:String x:Key="S.Update.Check">Check for updates</sys:String>
+    <sys:String x:Key="S.Update.Available">A new version is available: {0} (installed: {1}).</sys:String>
+    <sys:String x:Key="S.Update.Ask">WebcamFBT {0} is out. Open the download page? Just run the new installer; your settings and calibration are kept.</sys:String>
+    <sys:String x:Key="S.Update.UpToDate">WebcamFBT is up to date (version {0}).</sys:String>
+    <sys:String x:Key="S.Update.Unavailable">Could not get update information: no internet connection, or the releases are not public.</sys:String>
 </ResourceDictionary>

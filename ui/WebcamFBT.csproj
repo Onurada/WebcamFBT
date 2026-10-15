@@ -10,6 +10,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>WebcamFBT</AssemblyName>
     <Product>WebcamFBT</Product>
+    <!-- One version for app, engine and installer: the VERSION file at the repository root -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</Version>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <!-- Fluent ThemeMode is still marked experimental -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>

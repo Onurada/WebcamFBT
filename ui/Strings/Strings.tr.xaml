@@ -271,4 +271,12 @@
     <sys:String x:Key="S.Recenter.rift">sağ kumandadaki Oculus butonuna basılı tut</sys:String>
     <sys:String x:Key="S.Recenter.vd">Virtual Desktop menüsünden ya da Meta butonuna basılı tutarak</sys:String>
     <sys:String x:Key="S.Recenter.generic">kaskının ya da SteamVR menüsünün yeniden merkezleme komutunu kullan</sys:String>
+    <sys:String x:Key="S.Setup.SteamVrOpenInstall">SteamVR açık olduğu için WebcamFBT sürücüsü şimdi kaydedilemedi. SteamVR'ı kapatıp WebcamFBT'de SteamVR sürücüsü &gt; Kur / onar'a bas.</sys:String>
+    <sys:String x:Key="S.Setup.SteamVrOpenUninstall">SteamVR açık olduğu için WebcamFBT sürücüsü SteamVR'dan kaldırılamadı. SteamVR'ı kapatıp kaldırmayı tekrar çalıştır.</sys:String>
+    <sys:String x:Key="S.Update.Auto">Açılışta güncelleme denetle (GitHub'a bağlanır)</sys:String>
+    <sys:String x:Key="S.Update.Check">Güncellemeleri denetle</sys:String>
+    <sys:String x:Key="S.Update.Available">Yeni sürüm var: {0} (kurulu: {1}).</sys:String>
+    <sys:String x:Key="S.Update.Ask">WebcamFBT {0} yayınlandı. İndirme sayfası açılsın mı? Yeni kurulum dosyasını çalıştırman yeterli; ayarların ve kalibrasyonun korunur.</sys:String>
+    <sys:String x:Key="S.Update.UpToDate">WebcamFBT güncel (sürüm {0}).</sys:String>
+    <sys:String x:Key="S.Update.Unavailable">Güncelleme bilgisi alınamadı: internet bağlantısı yok ya da sürümler herkese açık değil.</sys:String>
 </ResourceDictionary>

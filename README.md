@@ -7,6 +7,20 @@ SteamVR as **virtual Vive trackers**. Works in VRChat, Vivecraft and any other S
 
 Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both feet** gives the most solid result.
 
+## Installing
+1. Download `WebcamFBT-Setup-<version>.exe` from the **Releases** page on GitHub.
+2. **Close SteamVR** and run it. No Python or .NET to install, everything is included.
+   - No administrator rights needed; it installs for your user into `%LOCALAPPDATA%\Programs\WebcamFBT`.
+   - The "Register the WebcamFBT driver with SteamVR" option sets up the driver and tracker roles.
+   - The installer is not code-signed, so Windows SmartScreen may warn: *More info → Run anyway*.
+3. On first launch the setup wizard walks you through the rest.
+
+**Updating:** the app checks for a new version at startup (can be turned off under *General*). Just run the new installer; your settings and calibration are kept.
+
+**Uninstalling:** *Settings → Apps → WebcamFBT → Uninstall*. It removes the driver from SteamVR and the tracker roles, and deletes the folder. Close SteamVR first.
+
+> While the repository is **private**, only you can see the Releases page and the update check. To share with a friend, send them the installer file directly.
+
 ## Supported headsets
 WebcamFBT only reads the headset's pose from SteamVR, so it works with any headset SteamVR supports:
 - **Meta Quest 1, 2, 3, 3S, Pro:** over Link cable, Air Link, Steam Link, Virtual Desktop or ALVR.
@@ -130,6 +144,8 @@ Adding a second camera (see above) largely reduces the first two.
 **Rebuilding:**
 - **App:** `dotnet publish ui -c Release -o app -p:OutputPath=..\build\ui-bin\`
 - **Driver:** run `build_driver.bat` while SteamVR is closed.
+
+**Building the installer:** `powershell -ExecutionPolicy Bypass -File installer\package.ps1` → `build\installer\WebcamFBT-Setup-<version>.exe`. Needs Visual Studio (C++), the .NET 10 SDK, Python 3.12 and Inno Setup 6. The version lives in `VERSION`. Pushing a tag (`git tag v<version>`, `git push origin v<version>`) makes GitHub build the installer and publish it under Releases.
 
 **Adding a language:**
 1. Copy `ui\Strings\Strings.en.xaml` to `Strings.xx.xaml`, translate it and add it to the list in `ui\Loc.cs`.

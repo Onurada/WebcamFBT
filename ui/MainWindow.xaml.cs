@@ -72,6 +72,7 @@ public partial class MainWindow : Window
         Loc.Apply(_cfg?.GetString("language", "") is { Length: > 0 } lang ? lang : Loc.SystemDefault());
 
         InitializeComponent();
+        Title = $"WebcamFBT {AppPaths.Version}";
 
         _engine.Message += msg => Dispatcher.BeginInvoke(() => HandleMessage(msg));
         _engine.FrameReady += OnFrame;
@@ -118,6 +119,8 @@ public partial class MainWindow : Window
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         _ = LoadCameraNamesAsync();
+        if (_cfg != null && _cfg.GetBool("check_updates", true))
+            _ = CheckForUpdatesAsync(manual: false);
         var testing = Environment.GetCommandLineArgs().Contains("--assistant", StringComparer.OrdinalIgnoreCase);
         if (_cfg != null && !_cfg.GetBool("setup_done", false) && !testing)
             OpenWizard();
@@ -168,6 +171,7 @@ public partial class MainWindow : Window
         RememberCalibCheck.IsChecked = cfg.GetBool("remember_calibration", true);
         ShowPreviewCheck.IsChecked = cfg.GetBool("show_preview", true);
         MinimizeToTrayCheck.IsChecked = cfg.GetBool("minimize_to_tray", true);
+        CheckUpdatesCheck.IsChecked = cfg.GetBool("check_updates", true);
         FillHotkeyCombo(HotkeyCalibrateCombo, CalibrateKey);
         FillHotkeyCombo(HotkeyPauseCombo, PauseKey);
         RefreshHotkeyTexts();
@@ -448,7 +452,7 @@ public partial class MainWindow : Window
         ApplyPreviewState();
     }
 
-    private void ShowFromTray()
+    public void ShowFromTray()
     {
         Show();
         WindowState = WindowState.Normal;
@@ -460,6 +464,36 @@ public partial class MainWindow : Window
     private void NotifyIfHidden(string title, string text)
     {
         if (!IsVisible) _tray?.ShowBalloon(title, text);
+    }
+
+    private void CheckUpdatesCheck_Click(object sender, RoutedEventArgs e) =>
+        SetLocal("check_updates", CheckUpdatesCheck.IsChecked == true);
+
+    private async void UpdateButton_Click(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(manual: true);
+
+    /// <summary>Automatic checks stay quiet unless there is something new; manual ones always answer.</summary>
+    private async Task CheckForUpdatesAsync(bool manual)
+    {
+        UpdateButton.IsEnabled = false;
+        try
+        {
+            var repo = _cfg?.GetString("update_repository", UpdateChecker.DefaultRepository) ?? UpdateChecker.DefaultRepository;
+            var result = await UpdateChecker.CheckAsync(repo);
+            if (result.IsNewer)
+            {
+                Log(Loc.T("Update.Available", result.LatestVersion!, AppPaths.Version));
+                _tray?.ShowBalloon("WebcamFBT", Loc.T("Update.Available", result.LatestVersion!, AppPaths.Version));
+                if (MessageBox.Show(this, Loc.T("Update.Ask", result.LatestVersion!), "WebcamFBT", MessageBoxButton.YesNo,
+                        MessageBoxImage.Information) == MessageBoxResult.Yes && result.Url != null)
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(result.Url) { UseShellExecute = true });
+            }
+            else if (manual)
+                Log(result.Available ? Loc.T("Update.UpToDate", AppPaths.Version) : Loc.T("Update.Unavailable"));
+        }
+        finally
+        {
+            UpdateButton.IsEnabled = true;
+        }
     }
 
     private void MinimizeToTrayCheck_Click(object sender, RoutedEventArgs e) =>

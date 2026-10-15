@@ -7,6 +7,20 @@ SteamVR'a **sanal Vive tracker** olarak gönderir. VRChat, Vivecraft ve diğer t
 
 Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En sağlam sonucu **kalça + iki ayak** verir.
 
+## Kurulum
+1. GitHub'daki **Releases** sayfasından `WebcamFBT-Setup-<sürüm>.exe` dosyasını indir.
+2. **SteamVR'ı kapat** ve kurulum dosyasını çalıştır. Python ya da .NET kurmana gerek yok, hepsi pakette var.
+   - Yönetici izni istemez, programı senin kullanıcı klasörüne kurar: `%LOCALAPPDATA%\Programs\WebcamFBT`.
+   - "WebcamFBT sürücüsünü SteamVR'a kaydet" seçeneği sürücüyü ve tracker rollerini ayarlar.
+   - Kurulum dosyası imzalı olmadığı için Windows SmartScreen uyarı verebilir: *Ek bilgi → Yine de çalıştır*.
+3. İlk açılışta kurulum sihirbazı seni adım adım yönlendirir.
+
+**Güncelleme:** Uygulama açılışta yeni sürüm olup olmadığına bakar (*Genel* bölümünden kapatılabilir). Yeni kurulum dosyasını çalıştırman yeterli; ayarların ve kalibrasyonun korunur.
+
+**Kaldırma:** *Ayarlar → Uygulamalar → WebcamFBT → Kaldır*. Sürücüyü SteamVR'dan ve tracker rollerini kaldırır, klasörü tamamen siler. SteamVR açıksa önce onu kapat.
+
+> Depo **private** olduğu sürece Releases sayfasını ve güncelleme kontrolünü sadece sen görebilirsin. Bir arkadaşınla paylaşmak için kurulum dosyasını ona doğrudan gönder.
+
 ## Desteklenen kasklar
 WebcamFBT sadece kaskın SteamVR'daki konumunu okur, bu yüzden SteamVR ile çalışan her kaskla çalışır:
 - **Meta Quest 1, 2, 3, 3S, Pro:** Link kablosu, Air Link, Steam Link, Virtual Desktop ya da ALVR ile.
@@ -130,6 +144,8 @@ Hatalara karşı önlemler:
 **Yeniden derlemek için:**
 - **Arayüz:** `dotnet publish ui -c Release -o app -p:OutputPath=..\build\ui-bin\`
 - **Sürücü:** SteamVR kapalıyken `build_driver.bat`
+
+**Kurulum dosyası üretmek:** `powershell -ExecutionPolicy Bypass -File installer\package.ps1` → `build\installer\WebcamFBT-Setup-<sürüm>.exe`. Gerekenler: Visual Studio (C++), .NET 10 SDK, Python 3.12, Inno Setup 6. Sürüm numarası `VERSION` dosyasında. `git tag v<sürüm>` ve `git push origin v<sürüm>` ile GitHub kurulum dosyasını kendisi üretip Releases'e koyar.
 
 **Yeni dil eklemek için:**
 1. `ui\Strings\Strings.en.xaml` dosyasını `Strings.xx.xaml` olarak kopyalayıp çevir ve `ui\Loc.cs` içindeki listeye ekle.

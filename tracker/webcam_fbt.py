@@ -50,6 +50,17 @@ import placement
 from messages import T, ascii_fold
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def read_version():
+    try:
+        with open(os.path.join(HERE, "..", "VERSION"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "?"
+
+
+VERSION = read_version()
 CALIBRATION_FILE = os.path.join(HERE, "calibration.json")
 
 # Order must match kTrackers in driver_webcamfbt.cpp
@@ -1509,9 +1520,14 @@ def open_workers(cfg, ipc):
         t.start()
     try:
         models = {i: create_landmarker(cfg["model"]) for i in indices}
-    finally:
+    except Exception:
         for t in threads:
             t.join()
+        for c in cams.values():  # an open camera thread would keep the process alive
+            c.close()
+        raise
+    for t in threads:
+        t.join()
     main_index = indices[0]
     if main_index in errors:
         for c in cams.values():
@@ -1574,7 +1590,7 @@ def run(args, cfg, ipc):
     else:
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
         log(T("help"))
-    log(T("engine_started", cam=", ".join(map(str, indices)), model=cfg["model"]))
+    log(T("engine_started", cam=", ".join(map(str, indices)), model=cfg["model"]) + f" (v{VERSION})")
     if cfg["remember_calibration"]:
         loaded = cal.load()
         if loaded:
