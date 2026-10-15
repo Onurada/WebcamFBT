@@ -16,5 +16,6 @@ if not defined VSDIR (
 call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 cd /d "%~dp0"
 if not exist build mkdir build
+if not exist webcamfbt\bin\win64 mkdir webcamfbt\bin\win64
 cl /nologo /O2 /EHsc /std:c++17 /MT /LD driver_src\driver_webcamfbt.cpp /Fobuild\ /Fewebcamfbt\bin\win64\driver_webcamfbt.dll /link /IMPLIB:build\driver_webcamfbt.lib ws2_32.lib || exit /b 1
 echo Build OK: webcamfbt\bin\win64\driver_webcamfbt.dll
