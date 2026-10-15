@@ -5,7 +5,7 @@
 Webcam görüntüsünden vücut iskeleti çıkarır (MediaPipe Pose), kaskının konumuna sabitler ve
 SteamVR'a **sanal Vive tracker** olarak gönderir. VRChat, Vivecraft ve diğer tüm SteamVR oyunlarında çalışır.
 
-Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En sağlam sonucu **kalça + iki ayak** verir.
+Kullanılabilen tracker'lar: kalça, göğüs, iki ayak, iki diz, iki dirsek. En sağlam sonucu **kalça + iki ayak** verir; dirsekler tek kamerada en gürültülü noktalar (oyun kollarını zaten kumandalardan yerleştirir), iki kameran yoksa kapalı tut.
 
 ## Kurulum
 1. GitHub'daki **Releases** sayfasından `WebcamFBT-Setup-<sürüm>.exe` dosyasını indir.
@@ -107,6 +107,11 @@ Kararlılık için yapılanlar:
 - **İşlemci önceliği:** Motor "normalin üstü" öncelikte çalışır, oyun işlemciyi yorsa bile takılmaz.
 - **Önizleme:** Pencere küçültülünce önizleme durur, işlemci oyuna kalır.
 - **Kamera bağlantısı:** Koparsa motor kendiliğinden yeniden bağlanır.
+- **Ayaklar odaya göre:** Ayaklar, görüntünün çekildiği andaki kask konumuyla yerleştirilir ve odaya göre süzülür; yürürken yere basan ayak artık seninle birlikte kaymaz (kalça ve kollar kaskı yine gecikmesiz izler).
+- **Kadraj dışındaki ayaklar:** Kameranın göremediği ayak donup arkada kalmak yerine dizini (ya da kalçanı) izler ve yerde kalır; tekrar görününce 0,3 saniyede yerine kayar. Görüntünün tam kenarındaki noktalar görünmüyor sayılır.
+- **Sırtın kameraya dönükken:** MediaPipe arkadan görünce sol ile sağı karıştırabilir (bacaklar 180° döner); kask hangi yöne baktığını bildiği için bu kareler geri çevrilir.
+
+**Hareket kaydı:** *Kontrol → Hareket kaydı al (60 sn)*. Bas, 15 saniye içinde kaskı tak ve kameranın önüne geç; iki bipte kayıt başlar, tiz bipte biter. Yürü, dön, otur-kalk, adım at. Kayıt (iskelet + kask hareketi, video yok) `logsecordings` klasörüne yazılır ve bilgisayarından çıkmaz. `python trackereplay.py <dosya>` kaydı yeniden oynatıp ayak kaymasını, sıçramaları, sol/sağ karışmalarını ve kamera gecikmesini ölçer, eski ve yeni takibi karşılaştırır.
 
 Hatalara karşı önlemler:
 - **Otomatik yeniden başlatma:** Motor çökerse ya da 30 saniye yanıt vermezse arayüz onu yeniden başlatır. 3 dakika içinde 3 denemeden sonra durur ve sebebini kayda yazar.

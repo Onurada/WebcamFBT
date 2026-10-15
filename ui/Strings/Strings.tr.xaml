@@ -67,6 +67,10 @@
     <sys:String x:Key="S.Control.Calibrate">Kalibre et ({0})</sys:String>
     <sys:String x:Key="S.Control.Pause">Duraklat ({0})</sys:String>
     <sys:String x:Key="S.Control.NoVr">SteamVR olmadan test et (sadece önizleme)</sys:String>
+    <sys:String x:Key="S.Control.Record">⏺  Hareket kaydı al (60 sn)</sys:String>
+    <sys:String x:Key="S.Control.RecordWaiting">Kayıt {0} sn sonra başlıyor… (iptal için bas)</sys:String>
+    <sys:String x:Key="S.Control.RecordRunning">⏺  Kaydediliyor… {0} sn (bitirmek için bas)</sys:String>
+    <sys:String x:Key="S.Control.RecordTip">Takibi senin gerçek hareketlerinle ölçüp iyileştirmek için: bas, 15 sn içinde kaskı tak ve kameranın önüne geç. İki bipte kayıt başlar; 60 sn boyunca yürü, dön, otur-kalk, adım at. Tiz bipte biter. Kayıt logsecordings klasörüne yazılır, hiçbir yere gönderilmez.</sys:String>
     <sys:String x:Key="S.Control.Hint">Kalibrasyon kendiliğinden olur: kask takılıyken kameranın önünde dik dur, ileri bak ve 2 sn kıpırdama (iki kısa bip, sonra tiz bip). Yenilemek için iki elini başının üstünde 2 sn tut ya da tuşa bas. Omuzlardan ayaklara görünmen yeterli; kafan kadraj dışında kalabilir.</sys:String>
 
     <!-- İnce ayar -->

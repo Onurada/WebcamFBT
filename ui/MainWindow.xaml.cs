@@ -416,7 +416,8 @@ public partial class MainWindow : Window
     private void SetRunningUi(bool running)
     {
         StartButton.SetResourceReference(ContentProperty, running ? "S.Control.Stop" : "S.Control.Start");
-        CalibrateButton.IsEnabled = PauseButton.IsEnabled = running;
+        CalibrateButton.IsEnabled = PauseButton.IsEnabled = RecordButton.IsEnabled = running;
+        if (!running) { _recording = null; RecordButton.Content = Loc.T("Control.Record"); }
         YawLeftButton.IsEnabled = YawRightButton.IsEnabled = ScaleDownButton.IsEnabled = ScaleUpButton.IsEnabled = running;
         NoVrCheck.IsEnabled = ScanButton.IsEnabled = !running;
         InstallDriverButton.IsEnabled = UninstallDriverButton.IsEnabled = !running;
@@ -571,6 +572,7 @@ public partial class MainWindow : Window
     {
         _lastStatus = DateTime.Now;
         _gotStatus = true;
+        UpdateRecording(s);
         SetChip(EngineDot, EngineValue, Loc.T("Engine.Running"), Good);
 
         var fps = s.GetProperty("fps").GetDouble();
@@ -767,6 +769,29 @@ public partial class MainWindow : Window
         if (_vrState == "waiting")
             Log(Loc.T("Log.NoVrWarning"));
         _engine.Send(new { cmd = "calibrate" });
+    }
+
+    private string? _recording;  // engine's recorder state: null, "waiting" or "recording"
+
+    private void RecordButton_Click(object sender, RoutedEventArgs e)
+    {
+        // A second press cancels the wait or stops (and saves) the recording early.
+        if (_recording != null)
+            _engine.Send(new { cmd = "record", value = false });
+        else
+            _engine.Send(new { cmd = "record", value = true, seconds = 60, delay = 15 });
+    }
+
+    private void UpdateRecording(JsonElement s)
+    {
+        _recording = s.TryGetProperty("recording", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
+        var left = s.TryGetProperty("recording_left", out var l) ? l.GetInt32() : 0;
+        RecordButton.Content = _recording switch
+        {
+            "waiting" => Loc.T("Control.RecordWaiting", left),
+            "recording" => Loc.T("Control.RecordRunning", left),
+            _ => Loc.T("Control.Record"),
+        };
     }
 
     private void PauseButton_Click(object sender, RoutedEventArgs e)

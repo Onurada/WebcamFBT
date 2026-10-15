@@ -45,6 +45,7 @@ jobs:
           python tests/test_tracking.py
           python tests/test_placement.py
           python tests/test_headset.py
+          python tests/test_replay.py
 
       - name: Set up MSVC command line
         uses: ilammy/msvc-dev-cmd@v1

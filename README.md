@@ -5,7 +5,7 @@
 Estimates your skeleton from a webcam (MediaPipe Pose), anchors it to your headset's pose and sends it to
 SteamVR as **virtual Vive trackers**. Works in VRChat, Vivecraft and any other SteamVR game.
 
-Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both feet** gives the most solid result.
+Available trackers: hip, chest, both feet, both knees, both elbows. **Hip + both feet** gives the most solid result; elbows are the noisiest with one camera (games already place your arms from the controllers), so leave them off unless you have two cameras.
 
 ## Installing
 1. Download `WebcamFBT-Setup-<version>.exe` from the **Releases** page on GitHub.
@@ -107,6 +107,13 @@ What keeps tracking stable:
 - **CPU priority:** the engine runs at above-normal priority, so it doesn't stutter when the game loads the CPU.
 - **Preview:** the preview pauses while the window is minimized, leaving the CPU to the game.
 - **Camera connection:** the engine reconnects by itself if the camera drops out.
+- **Feet in the room:** the feet are placed with the headset pose of the moment the frame was taken and smoothed in room coordinates, so a planted foot no longer slides along while you walk (hips and arms still follow the head without delay).
+- **Feet out of the picture:** a foot the camera cannot see follows your knee (or hips) and stays on the floor instead of freezing behind you; when it is seen again it glides back in 0.3 s. Joints at the very edge of the picture count as unseen.
+- **Back to the camera:** MediaPipe tends to swap left and right (legs turn 180°) when it sees you from behind; the headset tells which way you face, so such frames are turned back.
+
+**Movement recordings:** *Control → Record movement (60 s)*. Press it, put the headset on within 15 s and step in front of the camera; two beeps start it, a high beep ends it. Walk, turn, sit, take steps. The recording (skeleton + headset poses, no video) goes to `logs
+ecordings` and stays on your PC. `python tracker
+eplay.py <file>` replays it and reports foot sliding, jumps, left/right flips and the camera's latency, comparing the old and new tracking.
 
 What protects against failures:
 - **Automatic restart:** if the engine crashes or stops responding for 30 seconds, the app restarts it. After 3 attempts within 3 minutes it stops and logs why.

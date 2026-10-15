@@ -67,6 +67,10 @@
     <sys:String x:Key="S.Control.Calibrate">Calibrate ({0})</sys:String>
     <sys:String x:Key="S.Control.Pause">Pause ({0})</sys:String>
     <sys:String x:Key="S.Control.NoVr">Test without SteamVR (preview only)</sys:String>
+    <sys:String x:Key="S.Control.Record">⏺  Record movement (60 s)</sys:String>
+    <sys:String x:Key="S.Control.RecordWaiting">Recording starts in {0} s… (press to cancel)</sys:String>
+    <sys:String x:Key="S.Control.RecordRunning">⏺  Recording… {0} s (press to finish)</sys:String>
+    <sys:String x:Key="S.Control.RecordTip">To measure and improve tracking with your real movement: press, put the headset on within 15 s and step in front of the camera. Two beeps start the recording; for 60 s walk, turn, sit and stand, take steps. A high beep ends it. It is written to logsecordings and sent nowhere.</sys:String>
     <sys:String x:Key="S.Control.Hint">Calibration happens by itself: wear the headset, stand straight in front of the camera, look ahead and hold still for 2 s (two short beeps, then a high one). To redo it, hold both hands above your head for 2 s or press the key. Shoulders to feet must be in view; the head may be out of the picture.</sys:String>
 
     <!-- Fine tuning -->

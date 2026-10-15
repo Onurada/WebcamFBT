@@ -108,6 +108,17 @@ MESSAGES = {
               "SteamVR; if that does not help, press 'Install / repair' while SteamVR is closed.",
     },
     "driver_ok": {"tr": "SteamVR sürücüsü yeniden veri alıyor.", "en": "The SteamVR driver is receiving data again."},
+    "rec_waiting": {
+        "tr": "Kayıt {s} saniye sonra başlayacak ({n} saniye sürecek). Kaskı tak, kameranın önüne geç; iki bipte kayıt başlar.",
+        "en": "Recording starts in {s} seconds and lasts {n} seconds. Put the headset on and step in front of the camera; two beeps mark the start.",
+    },
+    "rec_started": {
+        "tr": "Kayıt başladı ({n} sn): yürü, dön, otur-kalk, adım at; her zamanki gibi oyna. Bitince tiz bip.",
+        "en": "Recording ({n} s): walk, turn, sit and stand, take steps; play as usual. A high beep marks the end.",
+    },
+    "rec_saved": {"tr": "Kayıt kaydedildi: {path}", "en": "Recording saved: {path}"},
+    "rec_empty": {"tr": "Kayıt boş: kamera kimseyi görmedi.", "en": "Recording is empty: the camera saw nobody."},
+    "rec_cancelled": {"tr": "Kayıt iptal edildi.", "en": "Recording cancelled."},
     "calib_needed_auto": {
         "tr": "Kalibrasyon gerekli: kask takılıyken kameranın önünde dik dur, ileri bak ve 2 saniye kıpırdama; "
               "kendiliğinden kalibre olur (ya da {cal}). Kalibre edilene kadar tracker gönderilmez.",

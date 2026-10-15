@@ -11,6 +11,7 @@ Global hotkeys (default F8 = calibrate, F9 = pause/resume, configurable) work in
 
 import argparse
 import base64
+import collections
 import ctypes
 import ctypes.wintypes
 import json
@@ -47,6 +48,7 @@ import cameras
 import headset
 import messages
 import placement
+import recorder
 from messages import T, ascii_fold
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -131,8 +133,10 @@ DEFAULTS = {
     "hotkey_pause": "F9",
     "extra_cameras": [],  # optional extra cameras fused with the main one (at most 2)
     "camera_hfov": 60.0,  # horizontal field of view assumed by the setup assistant
+    "camera_latency": 0.08,  # s from the moment a frame is exposed until read() returns it (feet use the headset pose of then)
 }
 RANGES = {
+    "camera_latency": (0.0, 0.3),
     "camera_index": (0, 15), "camera_width": (160, 3840), "camera_height": (120, 2160), "camera_fps": (5, 120),
     "filter_min_cutoff": (0.05, 10.0), "filter_beta": (0.0, 20.0), "depth_smoothing": (0.0, 1.0),
     "min_visibility": (0.0, 1.0), "ankle_height": (0.0, 0.3), "udp_port": (1024, 65535), "preview_fps": (1, 60),
@@ -140,7 +144,7 @@ RANGES = {
 }
 CHOICES = {"model": ("lite", "full", "heavy"), "language": (None,) + messages.LANGUAGES}
 
-LOG_DIR = os.path.join(HERE, "..", "logs")
+LOG_DIR = os.path.normpath(os.path.join(HERE, "..", "logs"))
 _file_log = None  # logging.Logger once setup_file_log() ran
 _out = print  # where log lines are shown: the console, or Ipc.log in --ipc mode
 
@@ -884,39 +888,41 @@ class Calibration:
         return bool(np.linalg.norm(pos - pos.mean(axis=0), axis=1).max() > self.MAX_MOVE or turn.max() > self.MAX_TURN)
 
     def _solve(self):
+        # Medians throughout: a few bad frames (a blink of a hand over the face, a misread foot) must
+        # not tilt or turn the whole calibration.
         # 1) Camera tilt: the person stands upright, so ankles->shoulders (plumb line) must map to +Y.
-        ups = [(P[L_SH] + P[R_SH]) / 2 - (P[L_ANK] + P[R_ANK]) / 2 for P, _, _ in self.samples]
-        r_tilt = rot_between(np.mean(ups, axis=0), np.array([0.0, 1.0, 0.0]))
+        ups = [norm((P[L_SH] + P[R_SH]) / 2 - (P[L_ANK] + P[R_ANK]) / 2) for P, _, _ in self.samples]
+        r_tilt = rot_between(np.median(ups, axis=0), np.array([0.0, 1.0, 0.0]))
         # The head is optional: with it in the picture the eyes give the scale and the ears the anchor.
         head = np.mean([vis[HEAD].min() > 0.5 for _, vis, _ in self.samples]) >= 0.8
 
         # 2) Camera yaw: body facing direction must match where the headset looks.
-        sin_sum = cos_sum = 0.0
-        eye_heights, shoulder_heights, hmd_heights, floors = [], [], [], []
+        diffs, eye_scales, shoulder_scales, hmd_heights, floors = [], [], [], [], []
         for P, _, hmd in self.samples:
             Q = P @ r_tilt.T
             right = (Q[R_HIP] - Q[L_HIP]) + (Q[R_SH] - Q[L_SH])
             right[1] = 0
             body_fwd = np.cross([0.0, 1.0, 0.0], right)
             hmd_fwd = -hmd.rot[:, 2]
-            d = yaw_of(hmd_fwd) - yaw_of(body_fwd)
-            sin_sum += math.sin(d)
-            cos_sum += math.cos(d)
+            diffs.append(yaw_of(hmd_fwd) - yaw_of(body_fwd))
             ground = min(Q[i][1] for i in (L_HEEL, R_HEEL, L_TOE, R_TOE))
-            eye_heights.append((Q[L_EYE][1] + Q[R_EYE][1]) / 2 - ground)
-            shoulder_heights.append((Q[L_SH][1] + Q[R_SH][1]) / 2 - ground)
+            eye_scales.append(hmd.height / max((Q[L_EYE][1] + Q[R_EYE][1]) / 2 - ground, 0.3))
+            shoulder_scales.append(SHOULDER_EYE_RATIO * hmd.height / max((Q[L_SH][1] + Q[R_SH][1]) / 2 - ground, 0.25))
             hmd_heights.append(hmd.height)
             floors.append(hmd.pos[1] - hmd.height)
-        yaw = math.atan2(sin_sum, cos_sum)
-        eye_height = float(np.mean(hmd_heights))
+        diffs = np.array(diffs)
+        center = math.atan2(np.sin(diffs).sum(), np.cos(diffs).sum())
+        yaw = center + float(np.median(np.angle(np.exp(1j * (diffs - center)))))
+        eye_height = float(np.median(hmd_heights))
 
         self.R = rot_y(yaw) @ r_tilt
-        if head:
-            scale = eye_height / max(np.mean(eye_heights), 0.3)
-        else:
-            scale = SHOULDER_EYE_RATIO * eye_height / max(np.mean(shoulder_heights), 0.25)
+        scale = np.median(eye_scales) if head else np.median(shoulder_scales)
         self.scale = float(np.clip(scale, 0.6, 1.6))
-        self.floor = float(np.mean(floors))
+        self.floor = float(np.median(floors))
+        if _file_log:
+            _file_log.info(f"calibration detail cam {self.index}: head={head} scale eye {np.median(eye_scales):.3f} "
+                           f"(spread {np.std(eye_scales):.3f}) shoulders {np.median(shoulder_scales):.3f} "
+                           f"(spread {np.std(shoulder_scales):.3f}) yaw spread {math.degrees(np.std(diffs - center)):.1f} deg")
         self.head_anchor = bool(head)
         if head:  # measure where this player's shoulders hang from the headset
             M = (self.scale * self.R).T
@@ -1214,6 +1220,118 @@ def camera_points(P, hmd, cal, vis=None):
     return P @ M + shift
 
 
+EDGE = 0.015  # image border (share of the picture) inside which a landmark counts as cut off
+
+
+def edge_visibility(vis, img):
+    """MediaPipe still places joints that are cut off by the picture's border, often with a fair
+    visibility score; those are guesses, so they count as hidden."""
+    out = vis.copy()
+    outside = (img[:, 0] < EDGE) | (img[:, 0] > 1 - EDGE) | (img[:, 1] < EDGE) | (img[:, 1] > 1 - EDGE)
+    out[outside] = np.minimum(out[outside], 0.2)
+    return out
+
+
+_LR = [(1, 4), (2, 5), (3, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16), (17, 18), (19, 20), (21, 22),
+       (23, 24), (25, 26), (27, 28), (29, 30), (31, 32)]
+SWAP_LR = np.arange(33)
+for _a, _b in _LR:
+    SWAP_LR[_a], SWAP_LR[_b] = _b, _a
+
+
+def facing_error(P, up, fwd):
+    """Degrees between the body's facing in P and fwd, both seen from above (up = vertical)."""
+    right = (P[R_HIP] - P[L_HIP]) + (P[R_SH] - P[L_SH])
+    body = np.cross(up, right)
+    body = body - np.dot(body, up) * up
+    f = fwd - np.dot(fwd, up) * up
+    nb, nf = np.linalg.norm(body), np.linalg.norm(f)
+    if nb < 1e-6 or nf < 1e-6:
+        return 0.0
+    return math.degrees(math.acos(float(np.clip(np.dot(body, f) / (nb * nf), -1.0, 1.0))))
+
+
+BACK_VIEW = 110.0  # degrees: the body cannot face this far from where the head looks
+
+
+def fix_back_view(P, ref):
+    """MediaPipe tends to take a person seen from behind for one facing the camera: left and right
+    labels swap and the depth is mirrored, so the legs turn 180 degrees. The headset says which way
+    the player really faces, so such a frame is turned back (labels swapped, depth mirrored).
+    Returns (P, flipped)."""
+    if ref is None:
+        return P, False
+    up, fwd = ref
+    if facing_error(P, up, fwd) < BACK_VIEW:
+        return P, False
+    mirrored = P[SWAP_LR] * np.array([1.0, 1.0, -1.0])
+    swapped = P[SWAP_LR]
+    best = min((mirrored, swapped), key=lambda Q: facing_error(Q, up, fwd))
+    if facing_error(best, up, fwd) < 180.0 - BACK_VIEW:
+        return best, True
+    return P, False
+
+
+class HmdHistory:
+    """The last second of headset poses, to look up where the head was when a frame was taken."""
+
+    def __init__(self, seconds=1.0):
+        self.seconds = seconds
+        self.poses = collections.deque()
+
+    def add(self, hmd):
+        if hmd is None:
+            return
+        self.poses.append(hmd)
+        while self.poses and hmd.t - self.poses[0].t > self.seconds:
+            self.poses.popleft()
+
+    def at(self, t):
+        """Pose at time t (position interpolated, rotation of the nearer pose); None if unknown."""
+        if not self.poses:
+            return None
+        if t >= self.poses[-1].t:
+            return self.poses[-1]
+        if t <= self.poses[0].t:
+            return self.poses[0]
+        hi = len(self.poses) - 1
+        lo = 0
+        while hi - lo > 1:
+            mid = (lo + hi) // 2
+            if self.poses[mid].t <= t:
+                lo = mid
+            else:
+                hi = mid
+        a, b = self.poses[lo], self.poses[hi]
+        k = (t - a.t) / max(b.t - a.t, 1e-6)
+        near = a if k < 0.5 else b
+        return HmdPose(near.rot, a.pos + (b.pos - a.pos) * k, a.height + (b.height - a.height) * k, t=t)
+
+
+# How much each joint is tracked in the room (1) rather than hung from the current head pose (0).
+# A planted foot stands still in the room while the body walks on. Hung from the head, with a body
+# shape that is ~150 ms old and smoothed relative to the hips, it slid along with every step; so the
+# feet are placed with the headset pose of the moment the frame was taken and smoothed in room
+# coordinates, where a planted foot does not move at all. Hips and arms follow the head closely and
+# stay hung from its current pose (no added lag); knees sit in between.
+WORLD_WEIGHT = np.zeros(33)
+WORLD_WEIGHT[[L_ANK, R_ANK, L_HEEL, R_HEEL, L_TOE, R_TOE]] = 1.0
+WORLD_WEIGHT[[L_KNEE, R_KNEE]] = 0.5
+
+
+def tracked_points(P, raw, vis, stamp, cal, hmd_now, hmd_then, room_filter):
+    """One camera's landmarks in raw VR space. P: smoothed camera-space landmarks (hung from the
+    current head); raw: the unsmoothed ones, placed in the room with the head pose of when the frame
+    was taken and smoothed there by room_filter (a OneEuro working along the camera's axes, so its
+    depth axis is still the camera's)."""
+    W = camera_points(P, hmd_now, cal, vis)
+    if hmd_then is None or raw is None:
+        return W
+    room = camera_points(raw, hmd_then, cal, vis) @ cal.R  # room positions along the camera's axes
+    room = room_filter(room, stamp, visibility_weight(vis)) @ cal.R.T
+    return W + WORLD_WEIGHT[:, None] * (room - W)
+
+
 DEPTH_NOISE = 3.0  # a single webcam's error along its viewing axis is about 3x its sideways error
 
 
@@ -1255,7 +1373,71 @@ def fuse_views(views, hmd=None, max_facing=math.radians(110)):
     return fused, np.max([v for _, v, _ in views], axis=0)
 
 
-def build_poses(W, vis, floor, cfg, enabled, last, feet=None, now=0.0):
+class Carry:
+    """Trackers whose joints the camera cannot see (feet out of the picture while walking) follow
+    the body instead of freezing where they were last seen: a hidden foot keeps its last offset to
+    its knee if the knee is seen (floor-clamped), else to the hips (on the floor). When the joint is
+    seen again the tracker glides to the measured pose over BLEND seconds instead of jumping."""
+
+    BLEND = 0.3
+    FOOT_KNEE = {"left_foot": L_KNEE, "right_foot": R_KNEE}
+
+    def __init__(self):
+        self.rel = {}  # name -> (position, rotation) relative to the hips' yaw frame
+        self.rel_knee = {}  # foot -> offset from its knee in the hips' yaw frame
+        self.out = {}  # name -> last position sent
+        self.hidden = set()
+        self.glide = {}  # name -> (offset, start time)
+
+    def seen(self, name, pos, rot, hip, yaw, now, knee=None):
+        if name in self.hidden:
+            self.hidden.discard(name)
+            if name in self.out:
+                self.glide[name] = (self.out[name] - pos, now)
+        self.rel[name] = (yaw.T @ (pos - hip), yaw.T @ rot)
+        if knee is not None:
+            self.rel_knee[name] = yaw.T @ (pos - knee)
+        if name in self.glide:
+            off, t0 = self.glide[name]
+            k = 1.0 - (now - t0) / self.BLEND
+            if k <= 0:
+                del self.glide[name]
+            else:
+                pos = pos + off * k
+        self.out[name] = pos
+        return pos, rot
+
+    def carried(self, name, hip, yaw, ground_y, knee=None):
+        """Pose of a tracker that is not seen now, or None if it was never seen."""
+        if name not in self.rel:
+            return None
+        rel_pos, rel_rot = self.rel[name]
+        if name in self.FOOT_KNEE:
+            if knee is not None and name in self.rel_knee:
+                pos = knee + yaw @ self.rel_knee[name]
+                pos[1] = max(pos[1], ground_y)
+            else:
+                pos = hip + yaw @ rel_pos
+                pos[1] = ground_y
+        else:
+            pos = hip + yaw @ rel_pos
+        self.hidden.add(name)
+        self.glide.pop(name, None)
+        self.out[name] = pos
+        return pos, yaw @ rel_rot
+
+
+def yaw_frame(right):
+    """Rotation turning only about the vertical so that x points along right (seen from above)."""
+    r = np.array([right[0], 0.0, right[2]])
+    if np.linalg.norm(r) < 1e-6:
+        return np.eye(3)
+    r = norm(r)
+    up = np.array([0.0, 1.0, 0.0])
+    return np.column_stack([r, up, np.cross(r, up)])
+
+
+def build_poses(W, vis, floor, cfg, enabled, last, feet=None, now=0.0, carry=None):
     """W: 33x3 landmarks in raw VR space. Returns [(id, pos, quat)] for the enabled trackers."""
     W = W.copy()
     min_ankle = floor + cfg["ankle_height"]
@@ -1284,13 +1466,22 @@ def build_poses(W, vis, floor, cfg, enabled, last, feet=None, now=0.0):
         "right_elbow": lambda: (W[R_ELB], frame_up_forward(W[R_SH] - W[R_ELB], body_fwd)),
     }
 
+    yaw = yaw_frame(right)
     out = []
     for tid, name in enumerate(TRACKERS):
         if not enabled[name]:
             continue
+        knee_i = Carry.FOOT_KNEE.get(name)
+        knee = W[knee_i] if knee_i is not None and vis[knee_i] >= cfg["min_visibility"] else None
+        pose = None
         if vis[REQUIRED[name]].min() >= cfg["min_visibility"]:
-            pos, rot = builders[name]()
-            last[name] = (tid, pos.copy(), quat_from_matrix(rot))
+            pose = builders[name]()
+            if carry is not None:
+                pose = carry.seen(name, pose[0], pose[1], hip_mid, yaw, now, knee)
+        elif carry is not None and name != "hip":
+            pose = carry.carried(name, hip_mid, yaw, min_ankle, knee)
+        if pose is not None:
+            last[name] = (tid, pose[0].copy(), quat_from_matrix(pose[1]))
         if name in last:
             out.append(last[name])
     return out
@@ -1394,10 +1585,13 @@ def create_landmarker(model):
 class Result:
     """One processed frame of one camera."""
 
-    __slots__ = ("frame", "stamp", "P", "vis", "landmarks")
+    __slots__ = ("frame", "stamp", "P", "vis", "landmarks", "raw", "img", "flipped", "vis_raw", "Pu")
 
     def __init__(self, frame, stamp, P=None, vis=None, landmarks=None):
         self.frame, self.stamp, self.P, self.vis, self.landmarks = frame, stamp, P, vis, landmarks
+        self.Pu = None  # P before smoothing (left/right fixed): the feet are smoothed in room coordinates
+        self.raw = self.img = self.vis_raw = None  # unfiltered landmarks (camera space) and image positions (0..1), for recordings
+        self.flipped = False  # left/right were swapped back (seen from behind)
 
 
 class CameraWorker:
@@ -1413,6 +1607,9 @@ class CameraWorker:
             self.cam.close()
             raise
         self.filt = OneEuro(*filter_params(cfg))
+        # (up, forward) of the headset in this camera's space, kept current by the main loop once the
+        # camera is calibrated; used to catch MediaPipe swapping left and right on a back view.
+        self.facing_ref = None
         self.lock = threading.Lock()
         self.result, self.result_id = None, 0
         self.fps = self.infer_ms = 0.0
@@ -1447,9 +1644,12 @@ class CameraWorker:
             self.infer_ms = ms if not self.infer_ms else 0.9 * self.infer_ms + 0.1 * ms
             r = Result(frame, stamp)
             if res.pose_world_landmarks:
-                r.vis = np.array([l.visibility or 0.0 for l in res.pose_landmarks[0]])
-                raw = np.array([[l.x, -l.y, -l.z] for l in res.pose_world_landmarks[0]])  # camera space, y up
-                r.P = self.filt(raw, stamp, visibility_weight(r.vis))
+                r.img = np.array([[l.x, l.y] for l in res.pose_landmarks[0]])
+                r.vis_raw = np.array([l.visibility or 0.0 for l in res.pose_landmarks[0]])
+                r.vis = edge_visibility(r.vis_raw, r.img)
+                r.raw = np.array([[l.x, -l.y, -l.z] for l in res.pose_world_landmarks[0]])  # camera space, y up
+                r.Pu, r.flipped = fix_back_view(r.raw, self.facing_ref)
+                r.P = self.filt(r.Pu, stamp, visibility_weight(r.vis))
                 r.landmarks = res.pose_landmarks[0]
             with self.lock:
                 self.result, self.result_id = r, self.result_id + 1
@@ -1599,6 +1799,9 @@ class State:
         self.workers = workers
         self.enabled = {n: bool(cfg["trackers"].get(n, False)) for n in TRACKERS}
         self.feet = FootLock()
+        self.carry = Carry()
+        self.room_filters = {w.index: OneEuro(*filter_params(cfg)) for w in workers}
+        self.recorder = recorder.Recorder(os.path.join(LOG_DIR, "recordings"))
         self.cal = CalibrationSet([w.index for w in workers])
         self.assistant = Assistant(cfg, len(workers))
         self.last_poses = {}
@@ -1647,6 +1850,19 @@ class State:
                     self.last_poses.pop(name, None)
         elif cmd in ("assistant", "room_walk"):
             self.assistant.apply(c)
+        elif cmd == "record":
+            if c.get("value", True):
+                seconds, delay = float(c.get("seconds", 60)), float(c.get("delay", 15))
+                self.recorder.start(now, seconds, delay, {
+                    "version": VERSION, "cameras": [w.index for w in self.workers],
+                    "camera_latency": self.cfg["camera_latency"], "model": self.cfg["model"],
+                    "trackers": self.cfg["trackers"], "headset": self.headset_name})
+                log(T("rec_waiting", s=round(delay), n=round(seconds)))
+            elif self.recorder.state == "waiting":
+                self.recorder.cancel()
+                log(T("rec_cancelled"))
+            elif self.recorder.state == "recording":
+                self.recorder.stop_at = now  # saved by the main loop
         elif cmd == "set":
             key = c.get("key")
             if key not in LIVE_SETTINGS:
@@ -1657,6 +1873,8 @@ class State:
             self.cfg[key] = checked[key]
             for w in self.workers:
                 w.filt.min_cutoff, w.filt.beta = filter_params(self.cfg)
+            for f in self.room_filters.values():
+                f.min_cutoff, f.beta = filter_params(self.cfg)
             if key == "language":
                 messages.set_language(self.cfg["language"] or system_language())
             if key == "camera_hfov":
@@ -1733,6 +1951,7 @@ def emit_status(ipc, args, vr, st, driver, *, person, hmd, sent, now):
              infer_ms=round(float(np.mean([w.infer_ms for w in workers])), 1),
              camera_ok=not main_cam.cam.lost, camera_state=main_cam.cam.state, driver=driver.state,
              headset=vr.headset,
+             recording=st.recorder.state, recording_left=round(max(0.0, st.recorder.remaining(now))),
              calibrated_count=cal.ready_count(),
              cameras=[{"index": w.index, "fps": round(w.live_fps, 1), "state": w.cam.state,
                        "infer_ms": round(w.infer_ms, 1), "calibrated": cal.cals[w.index].ready,
@@ -1821,6 +2040,7 @@ def run(args, cfg, ipc):
         log(T("hotkey_failed", key=key))
     seen = {w.index: 0 for w in workers}
     still, hands = StillDetector(), HandsUp()
+    hist = HmdHistory()
     auto_running, auto_wait_until = False, 0.0
     last_status = last_preview = last_assistant = last_vr_poll = 0.0
     last_space_warning = -1e9
@@ -1859,11 +2079,29 @@ def run(args, cfg, ipc):
                     seen[w.index] = rid
                     new[w.index] = res
 
-            # SteamVR and the hotkeys are served even while no camera delivers frames.
-            if new or now - last_vr_poll >= 0.1:
+            # SteamVR and the hotkeys are served even while no camera delivers frames. The headset is
+            # polled at ~90 Hz so the pose of the moment each frame was taken can be looked up.
+            if new or now - last_vr_poll >= 0.011:
                 last_vr_poll = now
                 hmd = vr.poll()
+                hist.add(hmd)
+                st.recorder.pose(hmd)
                 st.assistant.record(hmd)
+            for w in workers:
+                c = cal.cals[w.index]
+                w.facing_ref = (c.R.T @ np.array([0.0, 1.0, 0.0]), c.R.T @ -hmd.rot[:, 2]) if c.ready and hmd else None
+            rec_event = st.recorder.tick(now)
+            if rec_event == "started":
+                st.recorder.calibration(now, cal)
+                log(T("rec_started", n=round(st.recorder.stop_at - now)))
+                beep_twice(1000)
+            elif rec_event == "due":
+                try:
+                    path = st.recorder.save()
+                    log(T("rec_saved", path=path) if path else T("rec_empty"))
+                except Exception as e:
+                    log(T("error", err=e))
+                beep(1500, 300)
             if vr.headset_changed:
                 vr.headset_changed = False
                 st.headset_name = vr.headset["name"]
@@ -1915,11 +2153,14 @@ def run(args, cfg, ipc):
                     log(T("calib_auto"))
                     auto_running = True
                     cal.start(now, auto=True)
+            for i, r in new.items():
+                st.recorder.frame(i, r)
             results = cal.update(now, {i: (r.P, r.vis) for i, r in new.items()}, hmd)
             if results:
                 ok = any(results.values())
                 if ok:
                     st.save_calibration()
+                    st.recorder.calibration(now, cal)
                 elif auto_running:
                     auto_wait_until = now + 3.0
                 if ipc:
@@ -1934,12 +2175,15 @@ def run(args, cfg, ipc):
                 for i, r in latest.items():
                     c = cal.cals[i]
                     if c.ready and r is not None and r.P is not None and now - r.stamp < FRESH:
-                        views.append((camera_points(r.P, hmd, c, r.vis), r.vis, c.R[:, 2]))
+                        then = hist.at(r.stamp - cfg["camera_latency"])
+                        views.append((tracked_points(r.P, r.Pu, r.vis, r.stamp, c, hmd, then, st.room_filters[i]),
+                                      r.vis, c.R[:, 2]))
                         newest = max(newest, r.stamp)
             sent = 0
             if views and not st.paused:
                 W, vis = fuse_views(views, hmd)
-                poses = build_poses(W, vis, live_floor(hmd, cal.floor), cfg, st.enabled, st.last_poses, st.feet, newest)
+                poses = build_poses(W, vis, live_floor(hmd, cal.floor), cfg, st.enabled, st.last_poses, st.feet, newest,
+                                    st.carry)
                 if poses:
                     sender.send(poses)
                     sent = len(poses)
