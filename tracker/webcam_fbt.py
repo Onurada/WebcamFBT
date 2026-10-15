@@ -13,6 +13,8 @@ import argparse
 import base64
 import ctypes
 import json
+import logging
+import logging.handlers
 import math
 import os
 import queue
@@ -64,15 +66,122 @@ HMD_TO_EARS = np.array([0.0, -0.02, 0.09])
 VK_F8, VK_F9 = 0x77, 0x78
 
 DEFAULTS = {
-    "language": None,  # None = follow the Windows display language
+    "camera_index": 0,
+    "camera_width": 640,
+    "camera_height": 480,
+    "camera_fps": 30,
+    "model": "full",
+    "trackers": {"hip": True, "left_foot": True, "right_foot": True, "left_knee": False, "right_knee": False,
+                 "chest": False, "left_elbow": False, "right_elbow": False},
+    "filter_min_cutoff": 1.0,
+    "filter_beta": 1.0,
     "depth_smoothing": 0.6,
+    "min_visibility": 0.5,
+    "floor_lock": True,
     "foot_lock": True,
+    "ankle_height": 0.08,
+    "mirror_preview": True,
+    "udp_port": 39570,
+    "language": None,  # None = follow the Windows display language
     "remember_calibration": True,
     "high_priority": True,
     "preview_fps": 20,
 }
+RANGES = {
+    "camera_index": (0, 15), "camera_width": (160, 3840), "camera_height": (120, 2160), "camera_fps": (5, 120),
+    "filter_min_cutoff": (0.05, 10.0), "filter_beta": (0.0, 20.0), "depth_smoothing": (0.0, 1.0),
+    "min_visibility": (0.0, 1.0), "ankle_height": (0.0, 0.3), "udp_port": (1024, 65535), "preview_fps": (1, 60),
+}
+CHOICES = {"model": ("lite", "full", "heavy"), "language": (None,) + messages.LANGUAGES}
 
-log = print  # replaced by Ipc.log in --ipc mode
+LOG_DIR = os.path.join(HERE, "..", "logs")
+_file_log = None  # logging.Logger once setup_file_log() ran
+_out = print  # where log lines are shown: the console, or Ipc.log in --ipc mode
+
+
+def log(*args):
+    text = " ".join(str(a) for a in args)
+    if _file_log:
+        _file_log.info(text)
+    _out(text)
+
+
+def setup_file_log():
+    """logs/engine.log, rotated at 1 MB (3 old files kept), including crash tracebacks."""
+    global _file_log
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(os.path.join(LOG_DIR, "engine.log"), maxBytes=1_000_000,
+                                                       backupCount=3, encoding="utf-8")
+    except OSError:
+        return
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _file_log = logging.getLogger("webcamfbt")
+    _file_log.setLevel(logging.INFO)
+    _file_log.addHandler(handler)
+    threading.excepthook = lambda a: _file_log.error("thread crashed", exc_info=(a.exc_type, a.exc_value, a.exc_traceback))
+
+
+def validate_config(raw):
+    """Returns (config, problems). Missing keys get defaults; wrong types and out-of-range values are
+    replaced (numbers are clamped) and reported. Unknown keys (the app's own settings) are kept."""
+    cfg, problems = dict(raw), []
+
+    def fix(key, value, fallback):
+        problems.append(("config_invalid", {"key": key, "value": value, "default": fallback}))
+        return fallback
+
+    for key, default in DEFAULTS.items():
+        if key not in raw:
+            cfg[key] = json.loads(json.dumps(default))
+            continue
+        value = raw[key]
+        if key == "trackers":
+            trackers = dict(default)
+            if isinstance(value, dict):
+                for name in trackers:
+                    if isinstance(value.get(name), bool):
+                        trackers[name] = value[name]
+            else:
+                fix(key, value, trackers)
+            cfg[key] = trackers
+        elif key in CHOICES:
+            cfg[key] = value if value in CHOICES[key] else fix(key, value, default)
+        elif isinstance(default, bool):
+            cfg[key] = value if isinstance(value, bool) else fix(key, value, default)
+        elif isinstance(default, (int, float)):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                cfg[key] = fix(key, value, default)
+                continue
+            lo, hi = RANGES.get(key, (-math.inf, math.inf))
+            clamped = min(max(value, lo), hi)
+            if isinstance(default, int):
+                clamped = int(round(clamped))
+            if clamped != value:
+                fix(key, value, clamped)
+            cfg[key] = clamped
+    return cfg, problems
+
+
+def load_config(path):
+    """A missing or unreadable config never stops the engine: a broken file is kept aside as
+    config.json.broken-<time> for inspection and the defaults are used."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        if not isinstance(raw, dict):
+            raise ValueError("not a JSON object")
+    except FileNotFoundError:
+        return validate_config({})
+    except (OSError, ValueError) as e:
+        backup = f"{path}.broken-{time.strftime('%Y%m%d-%H%M%S')}"
+        try:
+            os.replace(path, backup)
+        except OSError:
+            backup = path
+        cfg, problems = validate_config({})
+        return cfg, [("config_corrupt", {"err": e, "backup": os.path.basename(backup)})] + problems
+    return validate_config(raw)
 
 
 def system_language():
@@ -225,6 +334,7 @@ class Camera:
         self.frame, self.frame_id, self.stamp = None, 0, 0.0
         self.last_ok = time.monotonic()
         self.lost = False
+        self.ever_ok = False  # no frame yet: "busy/blocked" rather than "disconnected"
         self.events = queue.Queue()  # message keys for the main thread to log
         self.lock = threading.Lock()
         self.running = True
@@ -255,12 +365,13 @@ class Camera:
                     self.lost = False
                     self.events.put("camera_back")
                 self.last_ok = now
+                self.ever_ok = True
                 with self.lock:
                     self.frame, self.frame_id, self.stamp = f, self.frame_id + 1, now
                 continue
             if not self.lost and now - self.last_ok > self.LOST_AFTER:
                 self.lost = True
-                self.events.put("camera_lost")
+                self.events.put("camera_lost" if self.ever_ok else "camera_no_frames")
             if self.lost:
                 if self.cap is not None:
                     self.cap.release()
@@ -274,6 +385,12 @@ class Camera:
         with self.lock:
             return self.frame, self.frame_id, self.stamp
 
+    @property
+    def state(self):
+        if not self.lost:
+            return "ok"
+        return "lost" if self.ever_ok else "no_frames"
+
     def close(self):
         self.running = False
         self.thread.join(timeout=2)
@@ -282,12 +399,47 @@ class Camera:
 
 
 class HmdPose:
-    def __init__(self, rot, pos, height):
+    def __init__(self, rot, pos, height, vel=None, ang_vel=None, t=0.0):
         self.rot, self.pos, self.height = rot, pos, height
+        self.vel = np.zeros(3) if vel is None else vel
+        self.ang_vel = np.zeros(3) if ang_vel is None else ang_vel
+        self.t = t
+
+
+def rotation_angle(R):
+    return math.acos(float(np.clip((np.trace(R) - 1) / 2, -1.0, 1.0)))
+
+
+def space_jump(prev, cur, max_gap=0.25, pos_tol=0.25, ang_tol=math.radians(30)):
+    """If the headset's tracking space was reset (Quest recenter) between two poses, returns the
+    transform (yaw rotation, translation) from the old space to the new one, else None.
+    A real head movement is backed by the reported velocities; a space reset is not."""
+    dt = cur.t - prev.t
+    if dt <= 0 or dt > max_gap:
+        return None
+    expected = prev.pos + (prev.vel + cur.vel) / 2 * dt
+    pos_err = np.linalg.norm(cur.pos - expected)
+    turn = cur.rot @ prev.rot.T
+    ang_err = rotation_angle(turn) - np.linalg.norm((prev.ang_vel + cur.ang_vel) / 2) * dt
+    if pos_err < pos_tol and ang_err < ang_tol:
+        return None
+    yaw = math.atan2(turn[0, 2], turn[2, 2])  # keep the yaw part; a recenter never tilts the floor
+    R = rot_y(yaw)
+    return R, cur.pos - R @ prev.pos
+
+
+def apply_space_jump(cal, jump):
+    """Moves a calibration into the headset's new tracking space."""
+    R, t = jump
+    cal.R = R @ cal.R
+    cal.floor += float(t[1])
 
 
 class VRLink:
     """Background OpenVR client used only to read the headset pose."""
+
+    SPACE_EVENTS = (openvr.VREvent_ChaperoneUniverseHasChanged, openvr.VREvent_StandingZeroPoseReset,
+                    openvr.VREvent_SeatedZeroPoseReset)
 
     def __init__(self, enabled):
         self.enabled = enabled
@@ -295,6 +447,20 @@ class VRLink:
         self.next_try = 0.0
         self.raw_arr = (openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount)()
         self.std_arr = (openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount)()
+        self.prev = None
+        self.jump = None  # set by poll() when the tracking space jumped; read and cleared by the caller
+        self.space_event = False  # SteamVR announced a recenter / chaperone change
+
+    def driver_trackers(self):
+        """How many WebcamFBT trackers SteamVR currently has (None if unknown)."""
+        if self.sys is None:
+            return None
+        try:
+            return sum(1 for i in range(1, openvr.k_unMaxTrackedDeviceCount)
+                       if self.sys.getTrackedDeviceClass(i) == openvr.TrackedDeviceClass_GenericTracker
+                       and self.sys.getStringTrackedDeviceProperty(i, openvr.Prop_TrackingSystemName_String) == "webcamfbt")
+        except Exception:
+            return None
 
     @property
     def connected(self):
@@ -306,6 +472,7 @@ class VRLink:
         except Exception:
             pass
         self.sys = None
+        self.prev = None
 
     def poll(self):
         if not self.enabled:
@@ -327,6 +494,8 @@ class VRLink:
                     self.disconnect()
                     log(T("vr_closed"))
                     return None
+                if ev.eventType in self.SPACE_EVENTS:
+                    self.space_event = True
             raw = self.sys.getDeviceToAbsoluteTrackingPose(openvr.TrackingUniverseRawAndUncalibrated, 0.0, self.raw_arr)
             std = self.sys.getDeviceToAbsoluteTrackingPose(openvr.TrackingUniverseStanding, 0.0, self.std_arr)
         except Exception as e:
@@ -337,7 +506,15 @@ class VRLink:
             return None
         m = raw[0].mDeviceToAbsoluteTracking
         m = np.array([[m[i][j] for j in range(4)] for i in range(3)])
-        return HmdPose(m[:, :3], m[:, 3], std[0].mDeviceToAbsoluteTracking[1][3])
+        v, w = raw[0].vVelocity, raw[0].vAngularVelocity
+        pose = HmdPose(m[:, :3], m[:, 3], std[0].mDeviceToAbsoluteTracking[1][3],
+                       np.array([v[0], v[1], v[2]]), np.array([w[0], w[1], w[2]]), time.monotonic())
+        if self.prev is not None:
+            jump = space_jump(self.prev, pose)
+            if jump is not None:
+                self.jump = jump
+        self.prev = pose
+        return pose
 
 
 class Sender:
@@ -354,6 +531,59 @@ class Sender:
 
 def beep(freq, ms):
     threading.Thread(target=winsound.Beep, args=(freq, ms), daemon=True).start()
+
+
+def beep_warning():
+    """Two low beeps: something needs attention (heard inside the headset too)."""
+    def run():
+        for _ in range(2):
+            winsound.Beep(400, 140)
+            time.sleep(0.08)
+    threading.Thread(target=run, daemon=True).start()
+
+
+def udp_port_free(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.bind(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+class DriverWatch:
+    """Notices when poses are sent but SteamVR shows no WebcamFBT trackers, and says why:
+    the driver is not loaded (port free) or another program holds the driver's UDP port."""
+
+    GRACE = 4.0  # s of sending before judging (trackers appear on the first packets)
+    INTERVAL = 5.0
+
+    def __init__(self, port):
+        self.port = port
+        self.sending_since = None
+        self.next_check = 0.0
+        self.state = "unknown"
+
+    def update(self, vr, sending, now):
+        """Returns a message key when the state changes in a way worth telling, else None."""
+        if not sending or not vr.connected:
+            self.sending_since = None
+            return None
+        if self.sending_since is None:
+            self.sending_since = now
+        if now - self.sending_since < self.GRACE or now < self.next_check:
+            return None
+        self.next_check = now + self.INTERVAL
+        count = vr.driver_trackers()
+        if count is None:
+            return None
+        new = "ok" if count > 0 else ("not_loaded" if udp_port_free(self.port) else "port_busy")
+        old, self.state = self.state, new
+        if new == old or (new == "ok" and old == "unknown"):
+            return None
+        return {"ok": "driver_ok", "not_loaded": "driver_not_loaded", "port_busy": "port_busy"}[new]
 
 
 def raise_priority():
@@ -650,11 +880,15 @@ class State:
                     self.last_poses.pop(name, None)
         elif cmd == "set":
             key = c.get("key")
-            if key in LIVE_SETTINGS:
-                self.cfg[key] = c.get("value")
-                self.filt.min_cutoff, self.filt.beta = filter_params(self.cfg)
-                if key == "language":
-                    messages.set_language(self.cfg["language"])
+            if key not in LIVE_SETTINGS:
+                return
+            checked, problems = validate_config({**self.cfg, key: c.get("value")})
+            for name, kw in problems:
+                log(T(name, **kw))
+            self.cfg[key] = checked[key]
+            self.filt.min_cutoff, self.filt.beta = filter_params(self.cfg)
+            if key == "language":
+                messages.set_language(self.cfg["language"] or system_language())
         elif cmd == "quit":
             self.quit = True
 
@@ -682,7 +916,7 @@ def overlay_lines(st, vr, no_vr, fps, person, sent, now):
 
 
 def main():
-    global log
+    global _out
     ap = argparse.ArgumentParser(description="WebcamFBT")
     ap.add_argument("--config", default=os.path.join(HERE, "config.json"))
     ap.add_argument("--camera", type=int, help="camera index (overrides config)")
@@ -694,16 +928,37 @@ def main():
 
     ipc = Ipc() if args.ipc else None
     if ipc:
-        log = ipc.log
+        _out = ipc.log
     else:
         sys.stdout.reconfigure(errors="replace")  # the console code page may lack ı/ş/…
+    setup_file_log()
 
-    with open(args.config, encoding="utf-8") as f:
-        cfg = {**DEFAULTS, **json.load(f)}
-    if not cfg["language"]:
-        cfg["language"] = system_language()
-    messages.set_language(cfg["language"])
+    cfg, problems = load_config(args.config)
+    messages.set_language(cfg["language"] or system_language())
+    for name, kw in problems:
+        log(T(name, **kw))
 
+    try:
+        run(args, cfg, ipc)
+    except Exception as e:
+        if _file_log:
+            _file_log.exception("engine crashed")
+        log(T("crashed", err=e))
+        if ipc:
+            ipc.emit(type="error", msg=str(e))
+        sys.exit(1)
+
+
+def emit_status(ipc, args, vr, cam, cal, st, driver, *, fps, person, hmd, sent, infer_ms, now):
+    ipc.emit(type="status", fps=round(fps, 1), person=person,
+             vr="off" if args.no_vr else ("connected" if vr.connected else "waiting"),
+             hmd=hmd, calibrated=cal.ready, calib_saved=cal.from_file,
+             calib_phase=cal.phase, calib_remaining=round(cal.remaining(now), 1),
+             scale=round(cal.scale, 3), sent=sent, paused=st.paused, infer_ms=round(infer_ms, 1),
+             camera_ok=not cam.lost, camera_state=cam.state, driver=driver.state)
+
+
+def run(args, cfg, ipc):
     if args.list_cameras:
         cams = list_cameras()
         if ipc:
@@ -737,7 +992,9 @@ def main():
     cal = st.cal
     vr = VRLink(not args.no_vr)
     sender = Sender(cfg["udp_port"])
+    driver = DriverWatch(cfg["udp_port"])
     hotkeys = Hotkeys([VK_F8, VK_F9])
+    recenter_warn_at = None  # a SteamVR space event without a measurable jump: warn a bit later
     last_id = 0
     t0 = time.monotonic()
     last_ts = -1
@@ -762,17 +1019,18 @@ def main():
                 while not ipc.commands.empty():
                     st.apply(ipc.commands.get_nowait(), time.monotonic())
             while not cam.events.empty():
-                log(T(cam.events.get_nowait()))
+                event = cam.events.get_nowait()
+                log(T(event, i=cfg["camera_index"]))
+                if event != "camera_back":
+                    beep_warning()
 
             frame, fid, stamp = cam.latest()
             if frame is None or fid == last_id:
                 time.sleep(0.002)
                 if ipc and time.monotonic() - last_status >= 0.5:  # keep the UI informed while the camera is gone
                     last_status = time.monotonic()
-                    ipc.emit(type="status", fps=0.0, person=False, vr="off" if args.no_vr else
-                             ("connected" if vr.connected else "waiting"), hmd=False, calibrated=cal.ready,
-                             calib_saved=cal.from_file, calib_phase=cal.phase, calib_remaining=0.0,
-                             scale=round(cal.scale, 3), sent=0, paused=st.paused, infer_ms=0.0, camera_ok=not cam.lost)
+                    emit_status(ipc, args, vr, cam, cal, st, driver, fps=0.0, person=False, hmd=False, sent=0,
+                                infer_ms=0.0, now=last_status)
                 continue
             last_id = fid
             now = time.monotonic()
@@ -794,6 +1052,30 @@ def main():
 
             hmd = vr.poll()
 
+            # Quest recenter / tracking space reset: move the calibration along with the space.
+            if vr.jump is not None:
+                jump, vr.jump = vr.jump, None
+                recenter_warn_at = None
+                if cal.ready and cal.phase is None:
+                    apply_space_jump(cal, jump)
+                    st.feet = FootLock()
+                    st.last_poses.clear()
+                    st.save_calibration()
+                    log(T("recenter_fixed"))
+                    beep_warning()
+                    if ipc:
+                        ipc.emit(type="recenter", corrected=True)
+            if vr.space_event:
+                vr.space_event = False
+                recenter_warn_at = now + 1.0
+            if recenter_warn_at is not None and now >= recenter_warn_at:
+                recenter_warn_at = None
+                if cal.ready:
+                    log(T("recenter_maybe"))
+                    beep_warning()
+                    if ipc:
+                        ipc.emit(type="recenter", corrected=False)
+
             if hotkeys.pressed(VK_F8):
                 cal.start(now)
             if hotkeys.pressed(VK_F9):
@@ -810,6 +1092,11 @@ def main():
                 if poses:
                     sender.send(poses)
                     sent = len(poses)
+            problem = driver.update(vr, sent > 0, now)
+            if problem:
+                log(T(problem, port=cfg["udp_port"]))
+                if problem != "driver_ok":
+                    beep_warning()
 
             fps_n += 1
             if now - fps_t >= 1.0:
@@ -819,12 +1106,8 @@ def main():
             if ipc:
                 if now - last_status >= 0.2:
                     last_status = now
-                    ipc.emit(type="status", fps=round(fps, 1), person=P is not None,
-                             vr="off" if args.no_vr else ("connected" if vr.connected else "waiting"),
-                             hmd=hmd is not None, calibrated=cal.ready, calib_saved=cal.from_file,
-                             calib_phase=cal.phase, calib_remaining=round(cal.remaining(now), 1),
-                             scale=round(cal.scale, 3), sent=sent, paused=st.paused,
-                             infer_ms=round(infer_ms, 1), camera_ok=not cam.lost)
+                    emit_status(ipc, args, vr, cam, cal, st, driver, fps=fps, person=P is not None,
+                                hmd=hmd is not None, sent=sent, infer_ms=infer_ms, now=now)
                 if st.preview and now - last_preview >= 1.0 / max(1, cfg["preview_fps"]):
                     last_preview = now
                     img = draw(frame, landmarks, cfg["mirror_preview"], [])

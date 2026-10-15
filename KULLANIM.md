@@ -54,6 +54,13 @@ Kararlılık için yapılanlar:
 - **Önizleme:** Pencere küçültülünce önizleme durur, işlemci oyuna kalır.
 - **Kamera bağlantısı:** Koparsa motor kendiliğinden yeniden bağlanır.
 
+Hatalara karşı önlemler:
+- **Otomatik yeniden başlatma:** Motor çökerse ya da 30 saniye yanıt vermezse arayüz onu yeniden başlatır. 3 dakika içinde 3 denemeden sonra durur ve sebebini kayda yazar.
+- **Kayıt dosyaları:** `logs\app.log` (arayüz) ve `logs\engine.log` (motor, çökme ayrıntılarıyla birlikte), 1 MB'ta dönüşümlü. *Genel → Kayıt klasörünü aç* ile açılır.
+- **Ayar doğrulama:** Geçersiz değerler varsayılana döner ya da sınırlara çekilir. Bozuk `config.json` dosyası `config.json.broken-<tarih>` olarak saklanır, uygulama varsayılanlarla açılır.
+- **Anlaşılır hata mesajları:** Kamera açılmıyorsa, kamera başka bir programda açıksa, sürücü yüklü değilse ya da UDP portu meşgulse ne yapman gerektiği yazar ve iki kalın bip sesi duyulur.
+- **Quest merkezleme:** Takip alanı değişirse (Meta butonuna basılı tutup merkezleme) kalibrasyon otomatik düzeltilir ve uyarı verilir. Kayık görünürse F8.
+
 ## Sınırlar (tek kamera)
 - Kameraya yaklaşma/uzaklaşma (derinlik) en zayıf eksen.
 - Kameraya **sırtını dönersen** sağ/sol karışabilir.

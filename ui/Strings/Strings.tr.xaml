@@ -144,4 +144,20 @@
     <sys:String x:Key="S.Log.ScanDone">{0} kamera bulundu.</sys:String>
     <sys:String x:Key="S.Log.ScanFailed">Tarama başarısız: {0}</sys:String>
     <sys:String x:Key="S.Log.Error">HATA: {0}</sys:String>
+    <sys:String x:Key="S.Log.AutoRestart">Motor beklenmedik şekilde durdu (kod {0}), yeniden başlatılıyor ({1}/{2})…</sys:String>
+    <sys:String x:Key="S.Log.AutoRestartGaveUp">Motor kısa sürede {0} kez durdu, otomatik yeniden başlatma bırakıldı. Ayrıntılar logs klasöründe.</sys:String>
+    <sys:String x:Key="S.Log.Hung">Motor {0} saniyedir yanıt vermiyor, kapatılıp yeniden başlatılıyor…</sys:String>
+    <sys:String x:Key="S.Log.ConfigBroken">Ayar dosyası bozuktu, {0} olarak saklandı; varsayılan ayarlarla devam ediliyor.</sys:String>
+
+    <!-- Güvenilirlik -->
+    <sys:String x:Key="S.Engine.Restarting">yeniden başlıyor</sys:String>
+    <sys:String x:Key="S.Placeholder.Restarting">Motor durdu, yeniden başlatılıyor…</sys:String>
+    <sys:String x:Key="S.Camera.NoFrames">görüntü yok</sys:String>
+    <sys:String x:Key="S.Vr.DriverMissing">sürücü veri almıyor</sys:String>
+    <sys:String x:Key="S.Vr.PortBusy">port meşgul</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterTitle">Takip alanı değişti</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterFixed">Kalibrasyon otomatik düzeltildi. Kayık görünürse F8.</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterMaybe">Tracker'lar kayık görünürse F8 ile yeniden kalibre et.</sys:String>
+    <sys:String x:Key="S.Calib.Check">kontrol et (F8)</sys:String>
+    <sys:String x:Key="S.General.OpenLogs">Kayıt klasörünü aç</sys:String>
 </ResourceDictionary>

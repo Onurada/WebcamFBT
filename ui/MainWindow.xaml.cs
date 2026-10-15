@@ -32,6 +32,15 @@ public partial class MainWindow : Window
     private DateTime _calibResultUntil;
     private bool? _calibResultOk;
     private string _vrState = "off";
+    private DateTime _recenterUntil;
+
+    // Automatic restart: a crashed or hung engine is restarted, but not more than MaxRestarts
+    // times within RestartWindow, so a permanent problem (e.g. no camera) does not loop forever.
+    private const int MaxRestarts = 3;
+    private static readonly TimeSpan RestartWindow = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan HangTimeout = TimeSpan.FromSeconds(30);
+    private readonly Queue<DateTime> _restartTimes = new();
+    private bool _userStopped = true;
     private List<(int Index, int Width, int Height)>? _scannedCameras;
     private (string Key, object[] Args) _placeholder = ("Placeholder.Off", []);
 
@@ -92,6 +101,8 @@ public partial class MainWindow : Window
         SetPlaceholder("Placeholder.Off");
         _loading = false;
         Log(Loc.T("Log.Folder", AppPaths.Root!));
+        if (_cfg!.BrokenBackup != null)
+            Log(Loc.T("Log.ConfigBroken", _cfg.BrokenBackup));
     }
 
     private readonly string? _startupErrorDetail;
@@ -207,6 +218,7 @@ public partial class MainWindow : Window
     private void StartEngine()
     {
         if (_cfg == null || _engine.IsRunning) return;
+        _userStopped = false;
         SaveConfig();
         try
         {
@@ -241,7 +253,7 @@ public partial class MainWindow : Window
         StartEngine();
     }
 
-    private void OnEngineExited(int code)
+    private async void OnEngineExited(int code)
     {
         // During a restart the old process's exit can arrive after the new one has started.
         if (_restarting || _engine.IsRunning) return;
@@ -249,18 +261,43 @@ public partial class MainWindow : Window
         SetRunningUi(false);
         Preview.Source = null;
         CalibOverlay.Visibility = Visibility.Collapsed;
-        if (code == 0)
-            SetPlaceholder("Placeholder.Off");
-        else
-            SetPlaceholder("Placeholder.Crashed", code);
         ResetChips();
-        if (code != 0)
+        if (code == 0 || _userStopped || _closeAllowed)
+        {
+            SetPlaceholder("Placeholder.Off");
+            return;
+        }
+
+        while (_restartTimes.Count > 0 && DateTime.Now - _restartTimes.Peek() > RestartWindow)
+            _restartTimes.Dequeue();
+        if (_restartTimes.Count >= MaxRestarts)
+        {
+            Log(Loc.T("Log.AutoRestartGaveUp", _restartTimes.Count + 1));
+            SetPlaceholder("Placeholder.Crashed", code);
             SetChip(EngineDot, EngineValue, Loc.T("Engine.Error"), Bad);
+            return;
+        }
+        _restartTimes.Enqueue(DateTime.Now);
+        Log(Loc.T("Log.AutoRestart", code, _restartTimes.Count, MaxRestarts));
+        SetPlaceholder("Placeholder.Restarting");
+        SetChip(EngineDot, EngineValue, Loc.T("Engine.Restarting"), Warn);
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        if (!_userStopped && !_closeAllowed && !_engine.IsRunning)
+            StartEngine();
     }
 
     private void CheckEngineAlive()
     {
-        if (_engine.IsRunning && _lastStatus != default && DateTime.Now - _lastStatus > TimeSpan.FromSeconds(15))
+        if (!_engine.IsRunning || _lastStatus == default) return;
+        var silent = DateTime.Now - _lastStatus;
+        if (silent > HangTimeout)
+        {
+            // Killing it makes it exit with a non-zero code, which takes the restart path above.
+            Log(Loc.T("Log.Hung", (int)silent.TotalSeconds));
+            _lastStatus = DateTime.Now;
+            _engine.Kill();
+        }
+        else if (silent > TimeSpan.FromSeconds(15))
             SetChip(EngineDot, EngineValue, Loc.T("Engine.NoResponse"), Bad);
     }
 
@@ -326,7 +363,14 @@ public partial class MainWindow : Window
                 ApplyPreviewState();
                 break;
             case "calibration":
+                _recenterUntil = default;
                 ShowCalibResult(msg.GetProperty("ok").GetBoolean());
+                break;
+            case "recenter":
+                var corrected = msg.GetProperty("corrected").GetBoolean();
+                _recenterUntil = DateTime.Now.AddSeconds(15);
+                _calibResultUntil = DateTime.Now.AddSeconds(5);
+                ShowOverlay(Loc.T("Overlay.RecenterTitle"), Loc.T(corrected ? "Overlay.RecenterFixed" : "Overlay.RecenterMaybe"));
                 break;
             case "log":
                 Log(msg.GetProperty("msg").GetString() ?? "");
@@ -343,7 +387,10 @@ public partial class MainWindow : Window
         SetChip(EngineDot, EngineValue, Loc.T("Engine.Running"), Good);
 
         var fps = s.GetProperty("fps").GetDouble();
-        if (s.TryGetProperty("camera_ok", out var camOk) && !camOk.GetBoolean())
+        var cameraState = s.TryGetProperty("camera_state", out var camEl) ? camEl.GetString() : "ok";
+        if (cameraState == "no_frames")
+            SetChip(CameraDot, CameraValue, Loc.T("Camera.NoFrames"), Bad);
+        else if (cameraState == "lost")
             SetChip(CameraDot, CameraValue, Loc.T("Camera.Lost"), Bad);
         else
             SetChip(CameraDot, CameraValue, Loc.T("Camera.Fps", fps), fps >= 18 ? Good : fps >= 10 ? Warn : Bad);
@@ -358,8 +405,15 @@ public partial class MainWindow : Window
         SetChip(PersonDot, PersonValue, Loc.T(person ? "Person.Yes" : "Person.No"), person ? Good : Bad);
 
         _vrState = s.GetProperty("vr").GetString() ?? "off";
+        var driverState = s.TryGetProperty("driver", out var drvEl) ? drvEl.GetString() : "unknown";
         switch (_vrState)
         {
+            case "connected" when driverState == "not_loaded":
+                SetChip(VrDot, VrValue, Loc.T("Vr.DriverMissing"), Bad);
+                break;
+            case "connected" when driverState == "port_busy":
+                SetChip(VrDot, VrValue, Loc.T("Vr.PortBusy"), Bad);
+                break;
             case "connected":
                 var hmd = s.GetProperty("hmd").GetBoolean();
                 SetChip(VrDot, VrValue, Loc.T(hmd ? "Vr.Connected" : "Vr.NoHmd"), hmd ? Good : Warn);
@@ -378,6 +432,8 @@ public partial class MainWindow : Window
         var remaining = s.GetProperty("calib_remaining").GetDouble();
         if (phase != null)
             SetChip(CalibDot, CalibValue, Loc.T("Calib.Running"), Warn);
+        else if (calibrated && DateTime.Now < _recenterUntil)
+            SetChip(CalibDot, CalibValue, Loc.T("Calib.Check"), Warn);
         else if (calibrated)
             SetChip(CalibDot, CalibValue, Loc.T(saved ? "Calib.ReadySaved" : "Calib.Ready"), Good);
         else
@@ -449,6 +505,7 @@ public partial class MainWindow : Window
 
     private void Log(string line)
     {
+        FileLog.Write(line);
         if (LogBox.Text.Length > 40000)
             LogBox.Text = LogBox.Text[^20000..];
         LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {line}{Environment.NewLine}");
@@ -468,9 +525,15 @@ public partial class MainWindow : Window
     private async void StartButton_Click(object sender, RoutedEventArgs e)
     {
         if (_engine.IsRunning)
+        {
+            _userStopped = true;
             await StopEngineAsync();
+        }
         else
+        {
+            _restartTimes.Clear();
             StartEngine();
+        }
     }
 
     private void CalibrateButton_Click(object sender, RoutedEventArgs e)
@@ -546,6 +609,13 @@ public partial class MainWindow : Window
     }
 
     private void AutoStartCheck_Click(object sender, RoutedEventArgs e) => SetLocal("auto_start", AutoStartCheck.IsChecked == true);
+
+    private void OpenLogsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileLog.Directory == null) return;
+        Directory.CreateDirectory(FileLog.Directory);
+        System.Diagnostics.Process.Start("explorer.exe", FileLog.Directory);
+    }
 
     private void RememberCalibCheck_Click(object sender, RoutedEventArgs e) =>
         SetLive("remember_calibration", RememberCalibCheck.IsChecked == true);

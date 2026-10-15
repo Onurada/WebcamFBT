@@ -125,6 +125,89 @@ def test_calibration_file_roundtrip(tmp=os.path.join(os.environ.get("TEMP", ".")
     os.remove(tmp)
 
 
+def test_config_validation():
+    cfg, problems = w.validate_config({"filter_beta": "abc", "min_visibility": 7, "model": "huge", "camera_index": 2.0,
+                                       "trackers": {"hip": False, "left_foot": "yes"}, "floor_lock": 1,
+                                       "auto_start": True})
+    assert cfg["filter_beta"] == w.DEFAULTS["filter_beta"]
+    assert cfg["min_visibility"] == 1.0  # clamped
+    assert cfg["model"] == "full"
+    assert cfg["camera_index"] == 2 and isinstance(cfg["camera_index"], int)
+    assert cfg["trackers"]["hip"] is False and cfg["trackers"]["left_foot"] is True  # bad entry -> default
+    assert cfg["floor_lock"] is True  # 1 is not a bool
+    assert cfg["auto_start"] is True  # the app's own keys survive
+    bad = {kw["key"] for name, kw in problems}
+    assert {"filter_beta", "min_visibility", "model", "floor_lock"} <= bad
+    assert w.validate_config({})[1] == []  # missing keys are not problems
+
+
+def test_corrupt_config_is_set_aside():
+    path = os.path.join(os.environ.get("TEMP", "."), "webcamfbt_cfg_test.json")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("{ this is not json")
+    cfg, problems = w.load_config(path)
+    assert cfg["model"] == "full" and problems[0][0] == "config_corrupt"
+    backup = os.path.join(os.path.dirname(path), problems[0][1]["backup"])
+    assert os.path.exists(backup) and not os.path.exists(path)
+    os.remove(backup)
+
+
+def test_recenter_is_detected_and_corrected():
+    W = skeleton()
+    P, hmd = to_camera(W), headset(W)
+    cal = calibrated(P, hmd)
+    enabled = {n: True for n in w.TRACKERS}
+    # Quest recenter: the whole tracking space turns 70° and shifts, the person did not move.
+    R, t = w.rot_y(math.radians(70)), np.array([0.4, 0.05, -1.2])
+    W2 = W @ R.T + t
+    hmd.t = 0.0
+    hmd2 = w.HmdPose(R @ hmd.rot, R @ hmd.pos + t, hmd.height, t=0.05)
+    jump = w.space_jump(hmd, hmd2)
+    assert jump is not None
+    w.apply_space_jump(cal, jump)
+    poses = w.compute_poses(P, np.ones(33), hmd2, cal, cfg(), enabled, {})
+    hip = next(p for i, p, q in poses if w.TRACKERS[i] == "hip")
+    assert np.linalg.norm(hip - (W2[w.L_HIP] + W2[w.R_HIP]) / 2) < 0.03
+    assert abs(cal.floor - (FLOOR + t[1])) < 1e-6
+
+
+def test_fast_head_turn_is_not_a_recenter():
+    rot0 = np.eye(3)
+    a = w.HmdPose(rot0, np.zeros(3), 1.6, t=0.0)
+    turn = math.radians(45)  # 45° in 50 ms = 900°/s, backed by the reported angular velocity
+    b = w.HmdPose(w.rot_y(turn), np.array([0.05, 0, 0]), 1.6, vel=np.array([1.0, 0, 0]),
+                  ang_vel=np.array([0, turn / 0.05, 0]), t=0.05)
+    a.ang_vel = b.ang_vel.copy()
+    a.vel = b.vel.copy()
+    assert w.space_jump(a, b) is None
+    assert w.space_jump(a, w.HmdPose(rot0, np.zeros(3), 1.6, t=1.0)) is None  # long gap: no guess
+
+
+def test_driver_watch():
+    class FakeVR:
+        connected = True
+        count = 0
+
+        def driver_trackers(self):
+            return self.count
+
+    import socket
+    blocker = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    blocker.bind(("127.0.0.1", 0))
+    busy_port = blocker.getsockname()[1]
+    vr = FakeVR()
+    free = w.DriverWatch(busy_port + 1 if busy_port < 65535 else busy_port - 1)
+    assert free.update(vr, True, 0.0) is None  # grace period
+    assert free.update(vr, True, 5.0) in ("driver_not_loaded", "port_busy")
+    busy = w.DriverWatch(busy_port)
+    busy.update(vr, True, 0.0)
+    assert busy.update(vr, True, 5.0) == "port_busy"
+    vr.count = 3
+    assert busy.update(vr, True, 11.0) == "driver_ok"
+    assert busy.update(vr, True, 17.0) is None  # no repeats
+    blocker.close()
+
+
 def test_messages_complete():
     import messages
     for key, entry in messages.MESSAGES.items():

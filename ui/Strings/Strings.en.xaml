@@ -144,4 +144,20 @@
     <sys:String x:Key="S.Log.ScanDone">Found {0} camera(s).</sys:String>
     <sys:String x:Key="S.Log.ScanFailed">Scan failed: {0}</sys:String>
     <sys:String x:Key="S.Log.Error">ERROR: {0}</sys:String>
+    <sys:String x:Key="S.Log.AutoRestart">The engine stopped unexpectedly (code {0}), restarting ({1}/{2})…</sys:String>
+    <sys:String x:Key="S.Log.AutoRestartGaveUp">The engine stopped {0} times in a short time, automatic restart gave up. Details are in the logs folder.</sys:String>
+    <sys:String x:Key="S.Log.Hung">The engine has not responded for {0} seconds, restarting it…</sys:String>
+    <sys:String x:Key="S.Log.ConfigBroken">The settings file was broken; it was kept as {0} and defaults are used.</sys:String>
+
+    <!-- Reliability -->
+    <sys:String x:Key="S.Engine.Restarting">restarting</sys:String>
+    <sys:String x:Key="S.Placeholder.Restarting">The engine stopped, restarting…</sys:String>
+    <sys:String x:Key="S.Camera.NoFrames">no image</sys:String>
+    <sys:String x:Key="S.Vr.DriverMissing">driver gets no data</sys:String>
+    <sys:String x:Key="S.Vr.PortBusy">port in use</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterTitle">Tracking space changed</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterFixed">Calibration was corrected automatically. Press F8 if anything looks off.</sys:String>
+    <sys:String x:Key="S.Overlay.RecenterMaybe">If the trackers look off, recalibrate with F8.</sys:String>
+    <sys:String x:Key="S.Calib.Check">check (F8)</sys:String>
+    <sys:String x:Key="S.General.OpenLogs">Open log folder</sys:String>
 </ResourceDictionary>

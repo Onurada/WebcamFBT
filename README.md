@@ -54,6 +54,13 @@ What keeps tracking stable:
 - **Preview:** the preview pauses while the window is minimized, leaving the CPU to the game.
 - **Camera connection:** the engine reconnects by itself if the camera drops out.
 
+What protects against failures:
+- **Automatic restart:** if the engine crashes or stops responding for 30 seconds, the app restarts it. After 3 attempts within 3 minutes it stops and logs why.
+- **Log files:** `logs\app.log` (app) and `logs\engine.log` (engine, including crash details), rotated at 1 MB. Open them with *General → Open log folder*.
+- **Settings validation:** invalid values fall back to defaults or are clamped. A broken `config.json` is kept as `config.json.broken-<date>` and the app starts with defaults.
+- **Clear error messages:** if the camera can't be opened, is used by another program, the driver isn't installed or its UDP port is taken, you get a message saying what to do, plus two low beeps.
+- **Quest recenter:** when the tracking space changes (holding the Meta button to recenter), the calibration is corrected automatically and you get a warning. Press F8 if anything looks off.
+
 ## Limits (single camera)
 - Moving towards/away from the camera (depth) is the weakest axis.
 - With **your back to the camera**, left and right can swap.

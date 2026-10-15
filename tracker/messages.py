@@ -24,10 +24,54 @@ MESSAGES = {
     },
     "camera_ok": {"tr": "Kamera {i}: çalışıyor {w}x{h}", "en": "Camera {i}: working {w}x{h}"},
     "camera_no_image": {"tr": "Kamera {i}: açıldı ama görüntü yok", "en": "Camera {i}: opened but no image"},
-    "camera_open_failed": {"tr": "Kamera {i} açılamadı", "en": "Could not open camera {i}"},
+    "camera_open_failed": {
+        "tr": "Kamera {i} açılamadı. Kamera takılı olmayabilir, numarası yanlış olabilir (Tara ile kontrol et) ya da "
+              "Windows kamera izni kapalı olabilir (Ayarlar > Gizlilik ve güvenlik > Kamera > Masaüstü uygulamaları).",
+        "en": "Could not open camera {i}. It may be unplugged, the index may be wrong (check with Scan), or Windows "
+              "camera access may be off (Settings > Privacy & security > Camera > Desktop apps).",
+    },
+    "camera_no_frames": {
+        "tr": "Kamera {i} açıldı ama görüntü gelmiyor. Başka bir program (Discord, OBS, Zoom, tarayıcı) kamerayı "
+              "kullanıyor olabilir; onu kapatınca motor kendiliğinden bağlanır.",
+        "en": "Camera {i} opened but sends no image. Another program (Discord, OBS, Zoom, a browser) may be using it; "
+              "close it and the engine reconnects by itself.",
+    },
     "camera_lost": {"tr": "Kamera bağlantısı koptu, yeniden bağlanılıyor…", "en": "Camera connection lost, reconnecting…"},
     "camera_back": {"tr": "Kamera yeniden bağlandı", "en": "Camera reconnected"},
     "error": {"tr": "HATA: {err}", "en": "ERROR: {err}"},
+    "crashed": {
+        "tr": "Motor bir hatayla durdu: {err}. Ayrıntılar logs\\engine.log dosyasında.",
+        "en": "The engine stopped with an error: {err}. Details are in logs\\engine.log.",
+    },
+    "config_invalid": {
+        "tr": "Ayar '{key}' geçersiz ({value}), {default} kullanılıyor.",
+        "en": "Setting '{key}' is invalid ({value}), using {default}.",
+    },
+    "config_corrupt": {
+        "tr": "Ayar dosyası okunamadı ({err}). Bozuk dosya {backup} olarak saklandı, varsayılan ayarlar kullanılıyor.",
+        "en": "The settings file could not be read ({err}). The broken file was kept as {backup}; using defaults.",
+    },
+    "driver_not_loaded": {
+        "tr": "SteamVR'da WebcamFBT tracker'ı yok: sürücü yüklü değil ya da kapalı. SteamVR'ı kapat, arayüzde "
+              "'Kur / onar'a bas ve SteamVR'ı yeniden aç (SteamVR > Ayarlar > Başlangıç/Kapanış > Eklentiler'de açık olmalı).",
+        "en": "SteamVR has no WebcamFBT trackers: the driver is not installed or is disabled. Close SteamVR, press "
+              "'Install / repair' in the app and reopen SteamVR (it must be on under SteamVR > Settings > Startup/Shutdown > Add-ons).",
+    },
+    "port_busy": {
+        "tr": "SteamVR sürücüsü veri alamıyor: UDP port {port} başka bir program tarafından kullanılıyor. O programı "
+              "kapatıp SteamVR'ı yeniden başlat.",
+        "en": "The SteamVR driver cannot receive data: UDP port {port} is used by another program. Close that "
+              "program and restart SteamVR.",
+    },
+    "driver_ok": {"tr": "SteamVR sürücüsü yeniden veri alıyor.", "en": "The SteamVR driver is receiving data again."},
+    "recenter_fixed": {
+        "tr": "Takip alanı değişti (Quest'te merkezleme). Kalibrasyon otomatik düzeltildi; kayık görünürse F8.",
+        "en": "The tracking space changed (Quest recenter). Calibration was corrected automatically; press F8 if anything looks off.",
+    },
+    "recenter_maybe": {
+        "tr": "SteamVR takip alanının değiştiğini bildirdi. Tracker'lar kayık görünürse F8 ile yeniden kalibre et.",
+        "en": "SteamVR reported a tracking space change. If the trackers look off, recalibrate with F8.",
+    },
     "engine_started": {
         "tr": "Motor başladı: kamera {cam}, model {model}",
         "en": "Engine started: camera {cam}, model {model}",

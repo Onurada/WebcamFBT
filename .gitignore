@@ -23,3 +23,5 @@ x64/
 
 # Per-machine state
 tracker/calibration.json
+logs/
+tracker/config.json.broken-*
