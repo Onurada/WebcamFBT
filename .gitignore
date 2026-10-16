@@ -27,3 +27,6 @@ logs/
 tracker/config.json.broken-*
 tests/*.exe
 tests/*.obj
+
+# IMU tracker Wi-Fi credentials (copy secrets.example.h)
+imu_tracker/secrets.h

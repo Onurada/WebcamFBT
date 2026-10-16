@@ -137,6 +137,7 @@ def run(rec, opts, cfg=None, latency=None):
         poses = w.build_poses(W, vis, floor, cfg, enabled, last, feet, now, carry)
         uncorrected = w.facing_error(raw, cal.R.T @ np.array([0.0, 1.0, 0.0]), cal.R.T @ -hmd_now.rot[:, 2])
         out.append({"t": now, "poses": {w.TRACKERS[tid]: np.array(pos) for tid, pos, _ in poses},
+                    "quats": {w.TRACKERS[tid]: np.array(q) for tid, _, q in poses},
                     "floor": floor, "hmd_speed": hmd.speed(now), "flipped": flipped,
                     "back_view": uncorrected >= w.BACK_VIEW,
                     "feet_hidden": [bool(vis[w.REQUIRED[n]].min() < cfg["min_visibility"])
