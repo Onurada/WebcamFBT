@@ -38,6 +38,11 @@ oturuluyorsa kalçanın yanı, kalça kemiğinin üstü. Kutu kemere sıkı otur
    Yükleme başlamazsa yüklerken karttaki **BOOT** düğmesini basılı tut.
 5. *Seri Port Ekranı*'nı 115200 baud'da aç: `MPU6050 ready`, `connected` ve saniyede bir durum satırı görmelisin.
 
+## Sonraki güncellemeler Wi-Fi'dan
+USB veri kablosu sadece **ilk** yükleme için gerekir. Sonrasında tracker yeni yazılımı Wi-Fi'dan alır
+(ağda `webcamfbt-imu-XXXXXXXX` adıyla görünür). Bunun için `secrets.h`'deki `OTA_PASSWORD`'e bir şifre
+yaz; güncellerken bu şifre sorulur. Kart güç almak için şarj kablosuyla da çalışır.
+
 ## Kontrol
 WebcamFBT motorunu durdur (aynı UDP portunu kullanırlar), sonra:
 ```
@@ -51,5 +56,5 @@ WebcamFBT motorunu durdur (aynı UDP portunu kullanırlar), sonra:
 **English:** ESP32 + MPU6050 streams raw accel/gyro at 200 Hz over UDP 39580 (the PC answers the
 tracker's broadcast "hello", then samples go unicast to it). Wiring: VCC→3V3, GND→GND, SDA→21, SCL→22.
 Copy `secrets.example.h` to `secrets.h` with your 2.4 GHz Wi-Fi, flash with the esp32 Arduino core
-(board "ESP32 Dev Module"), check with `tracker/imu_test.py`. ESP32-WROOM-32U needs an external antenna.
+(board "ESP32 Dev Module"), check with `tracker/imu_test.py`. ESP32-WROOM-32U needs an external antenna. Only the first upload needs USB; later ones go over Wi-Fi (ArduinoOTA, password OTA_PASSWORD).
 Worn on the belt at the lower back (hip tracker). Fusion with the webcam in the engine is the next step.

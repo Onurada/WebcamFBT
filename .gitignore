@@ -29,4 +29,5 @@ tests/*.exe
 tests/*.obj
 
 # IMU tracker Wi-Fi credentials (copy secrets.example.h)
-imu_tracker/secrets.h
+imu_tracker/secrets*.h
+!imu_tracker/secrets.example.h

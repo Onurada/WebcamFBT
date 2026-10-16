@@ -10,12 +10,21 @@
 // Finding the PC: until the engine answers, the tracker broadcasts a "hello" twice a second on
 // UDP 39580. The engine replies, and from then on samples go straight to the PC that replied.
 // If the PC stays silent for 5 s, the tracker goes back to broadcasting hellos.
+//
+// Updates over Wi-Fi: only the very first upload needs a USB data cable. After that the tracker
+// accepts new firmware over the network (ArduinoOTA, host name webcamfbt-imu-XXXXXXXX), protected
+// by OTA_PASSWORD from secrets.h; it stops streaming while an update runs.
 
+#include <ArduinoOTA.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <Wire.h>
 
-#include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD: copy secrets.example.h to secrets.h and fill it in
+#include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, OTA_PASSWORD: copy secrets.example.h to secrets.h
+
+#ifndef OTA_PASSWORD
+#define OTA_PASSWORD ""  // secrets.h from before OTA support: updates over Wi-Fi without a password
+#endif
 
 static const uint16_t PORT = 39580;
 static const uint32_t MAGIC = 0x554D4957;  // "WIMU"
@@ -47,6 +56,7 @@ uint32_t lastAckMs = 0, lastHelloMs = 0, lastStatusMs = 0;
 uint32_t trackerId = 0, nextSampleUs = 0, sent = 0, readErrors = 0;
 uint16_t seq = 0;
 bool mpuOk = false;
+bool otaStarted = false, updating = false;
 
 static bool writeReg(uint8_t reg, uint8_t value) {
   Wire.beginTransmission(MPU);
@@ -156,7 +166,26 @@ void setup() {
   nextSampleUs = micros();
 }
 
+static void startOta() {
+  char host[32];
+  snprintf(host, sizeof(host), "webcamfbt-imu-%08lX", (unsigned long)trackerId);
+  ArduinoOTA.setHostname(host);
+  if (strlen(OTA_PASSWORD) > 0) ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.onStart([]() { updating = true; Serial.println("Update over Wi-Fi started"); });
+  ArduinoOTA.onEnd([]() { Serial.println("Update done, restarting"); });
+  ArduinoOTA.onError([](ota_error_t e) { updating = false; Serial.printf("Update failed (%u)\n", (unsigned)e); });
+  ArduinoOTA.begin();
+  otaStarted = true;
+  Serial.printf("Updates over Wi-Fi: %s.local%s\n", host, strlen(OTA_PASSWORD) ? " (password set)" : " (NO password)");
+}
+
 void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!otaStarted) startOta();
+    ArduinoOTA.handle();
+  }
+  if (updating) return;  // the update gets the radio and the CPU to itself
+
   uint32_t nowUs = micros();
   if ((int32_t)(nowUs - nextSampleUs) >= 0) {
     nextSampleUs += PERIOD_US;
